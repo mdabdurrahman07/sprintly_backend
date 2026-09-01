@@ -1,11 +1,21 @@
 model User {
-  id             String    @id @default(uuid())
-  name           String
-  email          String    @unique
-  password       String
-  role           Role      @default(MEMBER)
-  organizationId String
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
-  deletedAt      DateTime?
+  id                 String       @id @default(uuid())
+  name               String
+  email              String       @unique
+  password           String
+  googleId           String?      @unique
+  authProvider       AuthProvider @default(CREDENTIAL)
+  emailVerified      Boolean      @default(false)
+  status             UserStatus   @default(ACTIVE)
+  needPasswordChange Boolean      @default(false)
+  isDeleted          Boolean      @default(false)
+  deletedAt          DateTime?
+  role               Role         @default(MEMBER)
+  organizationId     String
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+  managerProfile     Manager?
+  memberProfile      Member?
+
+  @@map("users")
 }

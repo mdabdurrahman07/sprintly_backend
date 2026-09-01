@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Email Verification - Sprintly</title>
+    <style>
+      body { 
+        font-family: Arial, sans-serif; 
+        background: #f7f7f7; 
+        color: #333; 
+        margin: 0; 
+        padding: 20px; 
+      }
+      .container { 
+        max-width: 500px; 
+        width: 100%;
+        margin: 40px auto; 
+        background: #fff; 
+        padding: 30px; 
+        border-radius: 8px; 
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08); 
+        box-sizing: border-box;
+      }
+      .otp { 
+        display: inline-block; 
+        padding: 12px 24px; 
+        background: #f0f4ff; 
+        color: #007bff; 
+        font-size: 28px; 
+        font-weight: bold; 
+        letter-spacing: 8px; 
+        border-radius: 4px; 
+        margin-top: 20px; 
+      }
+      .footer { 
+        margin-top: 30px; 
+        font-size: 12px; 
+        color: #888; 
+      }
+      /* Mobile Responsiveness */
+      @media screen and (max-width: 600px) {
+        body {
+          padding: 10px;
+        }
+        .container {
+          margin: 10px auto;
+          padding: 20px;
+        }
+        .otp {
+          font-size: 24px;
+          letter-spacing: 4px;
+          padding: 10px 16px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h2>Email Verification Request</h2>
+      <p>Hello <%= name %>, we received a request to verify your email for <%= email %>.</p>
+      <p>Use the OTP below to verify your account:</p>
+      <div class="otp"><%= otp %></div>
+      <p>This OTP will expire in <%= expirationSeconds %> seconds. If you did not request an email verification, please ignore this email.</p>
+      <div class="footer">&copy; Sprintly. All rights reserved.</div>
+    </div>
+  </body>
+</html>

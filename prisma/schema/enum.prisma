@@ -3,3 +3,14 @@ enum Role {
   MANAGER
   MEMBER
 }
+
+enum AuthProvider {
+  GOOGLE
+  CREDENTIAL
+}
+
+enum UserStatus {
+  ACTIVE
+  BLOCKED
+  DELETED
+}

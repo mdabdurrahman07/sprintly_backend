@@ -7,6 +7,8 @@ import cors from "cors";
 import cookieParser from "cookie-parser";
 import { config } from "./app/config";
 import httpStatus from "http-status";
+import { globalErrorHandler } from "./app/middleware/globalErrorHandler";
+import { notFound } from "./app/middleware/notFound";
 const app: Application = express()
 
 app.use(cors({
@@ -25,5 +27,8 @@ app.get("/", async (req: Request, res: Response) => {
 		message: "Welcome to Sprintly Your Project Management App Backend",
 	});
 });
+
+app.use(globalErrorHandler);
+app.use(notFound);
 
 export default app;

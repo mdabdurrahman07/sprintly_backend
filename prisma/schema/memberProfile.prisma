@@ -1,0 +1,14 @@
+model Member {
+  id          String   @id @default(uuid())
+  jobTitle    String?
+  skills      String[]
+  bio         String?
+  avatarUrl   String?
+  phoneNumber String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  userId      String   @unique
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("members")
+}
