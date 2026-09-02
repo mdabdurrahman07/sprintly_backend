@@ -29,5 +29,16 @@ router.get(
 );
 router.post("/refresh-token", authController.refreshToken);
 router.post("/google", authController.googleLogin);
+router.post(
+  "/register/manager",
+  validateRequest(userValidation.ManagerRegisterPayloadSchema),
+  authController.registerManager,
+);
+router.post(
+  "/verifyEmail/manager",
+  validateRequest(userValidation.VerifyEmailOTPSchema),
+  authController.verifyManagerEmail,
+);
+
 
 export const authRoutes = router;

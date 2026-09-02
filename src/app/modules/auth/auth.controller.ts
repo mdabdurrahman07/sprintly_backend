@@ -137,6 +137,44 @@ const googleLogin = catchAsync(async (req: Request, res: Response) => {
     data: result
   })
 })
+const registerManager = catchAsync(async (req: Request, res: Response) => {
+  const payload = req.body;
+  await authServices.registerManagerInDB(payload);
+  sendResponse(res, {
+    statusCode: httpStatus.OK,
+    success: true,
+    message: "Verification OTP Sent",
+  });
+});
+const verifyManagerEmail = catchAsync(async (req: Request, res: Response) => {
+  const payload = req.body;
+  const result = await authServices.verifyManagerEmailAndStoreUserInDB(payload);
+  const { accessToken, refreshToken, user, managerProfile } = result;
+  res.cookie("accessToken", accessToken, {
+    httpOnly: true,
+    secure: false,
+    sameSite: "none",
+    maxAge: 1000 * 60 * 60 * 24, // 24 hour or 1 day
+  });
+  res.cookie("refreshToken", refreshToken, {
+    httpOnly: true,
+    secure: false,
+    sameSite: "none",
+    maxAge: 1000 * 60 * 60 * 24 * 7, // 7 days
+  });
+  sendResponse(res, {
+    statusCode: httpStatus.CREATED,
+    success: true,
+    message: "Email Verified Successfully",
+    data: {
+      accessToken,
+      refreshToken,
+      user,
+      managerProfile,
+    },
+  });
+});
+
 
 export const authController = {
   registerMember,
@@ -144,5 +182,7 @@ export const authController = {
   login,
   getMe,
   refreshToken,
-  googleLogin
+  googleLogin,
+  registerManager,
+  verifyManagerEmail
 };

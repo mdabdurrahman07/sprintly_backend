@@ -6,6 +6,17 @@ export interface IUserRegisterPayload {
         skills: string[]
     }
 }
+export interface IManagerRegisterPayload {
+    name: string,
+    email: string,
+    password:string,
+    manager:{
+       bio?: string,
+       department?: string,
+       avatarUrl?: string,
+       phoneNumber?: string
+    }
+}
 
 export interface IUserLoginPayload {
     email: string,

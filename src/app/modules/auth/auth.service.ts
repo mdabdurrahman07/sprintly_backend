@@ -3,6 +3,7 @@ import { prisma } from "../../lib/prisma";
 import { AppError } from "../../utils/AppError";
 import {
   IGoogleLoginPayload,
+  IManagerRegisterPayload,
   IUserLoginPayload,
   IUserRegisterPayload,
   IVerifyEmailPayload,
@@ -467,11 +468,198 @@ const googleLogin = async (payload: IGoogleLoginPayload) => {
     refreshToken,
   };
 };
+const registerManagerInDB = async(payload: IManagerRegisterPayload) => {
+  const {email, manager: managerData, name, password} = payload
+  const isUserExists = await prisma.user.findUnique({
+    where: { email },
+  });
+
+  if (isUserExists) {
+    throw new AppError(
+      httpStatus.CONFLICT,
+      "User with this email already exists",
+    );
+  }
+
+  const hashedPassword = await bcrypt.hash(
+    password,
+    Number(config.bcrypt_salt_rounds),
+  );
+  //? redisDataStore
+  const expirationSeconds = 5 * 60;
+
+  //? email verification OTP , storing in redisDB
+  const otp = crypto.randomInt(100000, 1000000).toString();
+  const otpKey = `manager-register-otp:${email}`;
+  await redisClient.set(otpKey, otp, {
+    expiration: {
+      type: "EX",
+      value: expirationSeconds,
+    },
+  });
+  //? storing the user data at redisDB
+  const memberRegisterKey = `manager-register:${email}`;
+  const redisUserDataPayload = {
+    name,
+    email,
+    password: hashedPassword,
+    manager: managerData,
+  };
+
+  await redisClient.set(
+    memberRegisterKey,
+    JSON.stringify(redisUserDataPayload),
+    {
+      expiration: {
+        type: "EX",
+        value: expirationSeconds,
+      },
+    },
+  );
+   const templatePath = path.join(
+    process.cwd(),
+    "src/app/templates/verification-code.ejs",
+  );
+
+  const templateData = {
+    name,
+    email,
+    otp: otp,
+    expirationMinutes: expirationSeconds / 60,
+  };
+
+  const html = await ejs.renderFile(templatePath, templateData);
+  await transporter.sendMail({
+    from: config.email_sender,
+    to: email,
+    subject: "Email Verification",
+    html,
+  });
+}
+const verifyManagerEmailAndStoreUserInDB = async (
+  payload: IVerifyEmailPayload,
+) => {
+  const otp = payload.otp;
+  const email = payload.email.trim().toLowerCase();
+
+  const isUserExist = await prisma.user.findUnique({
+    where: { email },
+  });
+
+  if (isUserExist?.status === "BLOCKED") {
+    throw new AppError(httpStatus.FORBIDDEN, "User is Blocked");
+  }
+
+  if (isUserExist?.emailVerified) {
+    throw new AppError(httpStatus.BAD_REQUEST, "Email Already Verified");
+  }
+
+  if (isUserExist?.isDeleted || isUserExist?.status === "DELETED") {
+    throw new AppError(httpStatus.FORBIDDEN, "User is Deleted");
+  }
+  //! redis OTP
+  const otpKey = `manager-register-otp:${email}`;
+
+  const redisOtp = await redisClient.get(otpKey);
+
+  if (!redisOtp) {
+    throw new Error("Invalid OTP");
+  }
+
+  if (redisOtp !== otp) {
+    throw new Error("OTP Does Not Match");
+  }
+
+  await redisClient.del(otpKey);
+  //? storing the user data at redisDB
+  const managerRegisterKey = `manager-register:${email}`;
+
+  const redisMemberData = await redisClient.get(managerRegisterKey);
+  if (!redisMemberData) {
+    throw new AppError(httpStatus.BAD_REQUEST, "Manager Dosen't Exists");
+  }
+
+  const managerPayload: IManagerRegisterPayload = JSON.parse(redisMemberData);
+
+  const createdUser = await prisma.user.create({
+    data: {
+      name: managerPayload.name,
+      email: managerPayload.email,
+      password: managerPayload.password,
+      role: Role.MANAGER,
+      status: UserStatus.ACTIVE,
+      emailVerified: true,
+      managerProfile: {
+        create: {
+          name: managerPayload.name,
+          email: managerPayload.email,
+          bio: managerPayload.manager.bio,
+          department: managerPayload.manager.department,
+          phoneNumber: managerPayload.manager.phoneNumber,
+          avatarUrl: managerPayload.manager.avatarUrl
+        },
+      },
+    },
+    omit: { password: true },
+    include: { managerProfile: true },
+  });
+
+  await redisClient.del(managerRegisterKey);
+
+  // ejs
+  const templatePath = path.join(
+    process.cwd(),
+    "src/app/templates/verificationSuccessful.ejs",
+  );
+
+  const templateData = {
+    name: createdUser.name,
+    email: createdUser.email,
+  };
+
+  const html = await ejs.renderFile(templatePath, templateData);
+
+  await transporter.sendMail({
+    from: config.email_sender,
+    to: email,
+    subject: "Welcome To Sprintly Project Management App",
+    html,
+  });
+
+  const { managerProfile, ...user } = createdUser;
+
+  const jwtPayload = {
+    userId: user.id,
+    name: user.name,
+    email: user.email,
+    role: user.role,
+  };
+
+  const accessToken = jwtUtils.createToken(
+    jwtPayload,
+    config.jwt_access_secret,
+    config.jwt_access_expires_in as SignOptions,
+  );
+  const refreshToken = jwtUtils.createToken(
+    jwtPayload,
+    config.jwt_refresh_secret,
+    config.jwt_refresh_expires_in as SignOptions,
+  );
+
+  return {
+    user,
+    managerProfile,
+    accessToken,
+    refreshToken,
+  };
+};
 export const authServices = {
   registerUserInDB,
   verifyUserEmailAndStoreUserInDB,
   login,
   getMe,
   refreshToken,
-  googleLogin
+  googleLogin,
+  registerManagerInDB,
+  verifyManagerEmailAndStoreUserInDB
 };

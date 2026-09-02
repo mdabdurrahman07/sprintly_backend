@@ -19,8 +19,21 @@ export const VerifyEmailOTPSchema = z.object({
   otp: z.string().length(6)
 })
 
+export const ManagerRegisterPayloadSchema = z.object({
+  name: z.string().min(2, "Name must be at least 2 characters"),
+  email: z.string().email("Invalid email format").toLowerCase(),
+  password: z.string().min(8, "Password must be at least 8 characters"),
+  manager: z.object({
+    bio: z.string().optional(),
+    department: z.string().optional(),
+    avatarUrl: z.string().url().optional().or(z.literal("")), // Allows empty string if no URL is provided
+    phoneNumber: z.string().optional(),
+  }),
+});
+
 export const userValidation = {
     RegisterSchema,
     LoginSchema,
-    VerifyEmailOTPSchema
+    VerifyEmailOTPSchema,
+    ManagerRegisterPayloadSchema
 }
