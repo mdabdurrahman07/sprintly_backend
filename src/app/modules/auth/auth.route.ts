@@ -5,9 +5,9 @@ import { authController } from "./auth.controller";
 
 const router = Router()
 
-router.post('/register' , validateRequest(userValidation.RegisterSchema), authController.registerMember)
-router.post('/verifyEmail', validateRequest(userValidation.LoginSchema))
-// router.post('/login')
+router.post('/register/member' , validateRequest(userValidation.RegisterSchema), authController.registerMember)
+router.post('/verifyEmail', validateRequest(userValidation.VerifyEmailOTPSchema), authController.verifyEmail)
+router.post('/login', validateRequest(userValidation.LoginSchema))
 // router.get('/me')
 // router.post('/refresh-token')
 // router.post("/google")

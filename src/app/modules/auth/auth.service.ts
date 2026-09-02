@@ -7,9 +7,11 @@ import { config } from "../../config";
 import crypto from "crypto";
 import { redisClient } from "../../lib/redis";
 import path from "path";
-import ejs, { name } from "ejs";
+import ejs from "ejs";
 import { transporter } from "../../lib/nodemailer";
 import { Role, UserStatus } from "../../../../generated/prisma/enums";
+import { jwtUtils } from "../../utils/jwt";
+import { SignOptions } from "jsonwebtoken";
 
 const registerUserInDB = async (payload: IUserRegisterPayload) => {
   const { name, email, password, member: memberData } = payload;
@@ -48,7 +50,7 @@ const registerUserInDB = async (payload: IUserRegisterPayload) => {
     name,
     email,
     password: hashedPassword,
-    patient: memberData,
+    member: memberData,
   };
 
   await redisClient.set(
@@ -93,15 +95,15 @@ const verifyUserEmailAndStoreUserInDB = async (payload: IVerifyEmailPayload) => 
 	});
 
 	if (isUserExist?.status === "BLOCKED") {
-		throw new Error("User is Blocked")
+		throw new AppError(httpStatus.FORBIDDEN,"User is Blocked")
 	}
 
 	if (isUserExist?.emailVerified) {
-		throw new Error("Email ALready Verified")
+		throw new AppError(httpStatus.BAD_REQUEST,"Email Already Verified")
 	}
 
 	if (isUserExist?.isDeleted || isUserExist?.status === "DELETED") {
-		throw new Error("User is Deleted")
+		throw new AppError(httpStatus.FORBIDDEN,"User is Deleted")
 	}
   //! redis OTP
   const otpKey = `member-register-otp:${email}`;
@@ -127,7 +129,7 @@ const verifyUserEmailAndStoreUserInDB = async (payload: IVerifyEmailPayload) => 
 
   const memberPayload : IUserRegisterPayload = JSON.parse(redisMemberData)
 
-  const createUser = await prisma.user.create({
+  const createdUser = await prisma.user.create({
     data:{
       name: memberPayload.name,
       email: memberPayload.email,
@@ -149,12 +151,56 @@ const verifyUserEmailAndStoreUserInDB = async (payload: IVerifyEmailPayload) => 
 
   await redisClient.del(memberRegisterKey)
 
-  // TODO 
-  // ! add here ejs
-  // ! provide token
-  // ! return created user
+  // ejs
+  const templatePath = path.join(
+		process.cwd(),
+		"src/app/templates/verificationSuccessful.ejs",
+	);
+
+	const templateData = {
+		name: createdUser.name,
+    email: createdUser.email
+	};
+
+	const html = await ejs.renderFile(templatePath, templateData);
+
+  await transporter.sendMail({
+		from: config.email_sender,
+		to: email,
+		subject: "Welcome To Sprintly Project Management App",
+		html,
+	});
+
+  const {memberProfile, ...user} = createdUser
+
+  const jwtPayload = {
+		userId: user.id,
+		name: user.name,
+		email: user.email,
+		role: user.role,
+	};
+
+  const accessToken = jwtUtils.createToken(
+		jwtPayload,
+		config.jwt_access_secret,
+		config.jwt_access_expires_in as SignOptions,
+	);
+  const refreshToken = jwtUtils.createToken(
+		jwtPayload,
+		config.jwt_refresh_secret,
+		config.jwt_refresh_expires_in as SignOptions,
+	);
+
+  return{
+    user,
+    memberProfile,
+    accessToken,
+    refreshToken
+  }
+
 }
 
 export const authServices = {
-  registerUserInDB
+  registerUserInDB,
+  verifyUserEmailAndStoreUserInDB
 }

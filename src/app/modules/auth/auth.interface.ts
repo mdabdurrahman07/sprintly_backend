@@ -3,7 +3,7 @@ export interface IUserRegisterPayload {
     email: string,
     password:string,
     member:{
-        skills:[]
+        skills: string[]
     }
 }
 

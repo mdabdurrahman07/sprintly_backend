@@ -14,6 +14,36 @@ const registerMember = catchAsync(async (req: Request, res: Response) => {
     })
 })
 
+const verifyEmail = catchAsync(async (req: Request, res: Response) => {
+    const payload = req.body
+    const result = await authServices.verifyUserEmailAndStoreUserInDB(payload)
+    const {accessToken, refreshToken, user, memberProfile} = result
+    res.cookie("accessToken", accessToken, {
+		httpOnly: true,
+		secure: false,
+		sameSite: "none",
+		maxAge: 1000 * 60 * 60 * 24, // 24 hour or 1 day
+	});
+	res.cookie("refreshToken", refreshToken, {
+		httpOnly: true,
+		secure: false,
+		sameSite: "none",
+		maxAge: 1000 * 60 * 60 * 24 * 7, // 7 days
+	});
+    sendResponse(res, {
+        statusCode: httpStatus.CREATED,
+		success: true,
+		message: "Email Verified Successfully",
+		data: {
+			accessToken,
+			refreshToken,
+			user,
+			memberProfile,
+		},
+    })
+})
+
 export const authController = {
-    registerMember
+    registerMember,
+    verifyEmail
 }
