@@ -35,6 +35,7 @@
     "ejs": "^6.0.1",
     "experss": "^0.0.1-security",
     "express": "^5.2.1",
+    "google-auth-library": "^11.0.2",
     "http-status": "^2.1.0",
     "jsonwebtoken": "^9.0.3",
     "nodemailer": "^9.1.0",
