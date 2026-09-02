@@ -14,7 +14,13 @@ export const LoginSchema = z.object({
   password: z.string().min(1, "Password is required"),
 });
 
+export const VerifyEmailOTPSchema = z.object({
+  email: z.string().email("Invalid email format").toLowerCase().trim(),
+  otp: z.string().length(6)
+})
+
 export const userValidation = {
     RegisterSchema,
-    LoginSchema
+    LoginSchema,
+    VerifyEmailOTPSchema
 }

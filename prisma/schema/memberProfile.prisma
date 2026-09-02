@@ -1,5 +1,7 @@
 model Member {
   id          String   @id @default(uuid())
+  name        String
+  email       String   @unique
   jobTitle    String?
   skills      String[]
   bio         String?

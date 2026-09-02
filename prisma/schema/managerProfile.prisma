@@ -1,5 +1,7 @@
 model Manager {
   id          String   @id @default(uuid())
+  name        String
+  email       String   @unique
   department  String?
   bio         String?
   avatarUrl   String?

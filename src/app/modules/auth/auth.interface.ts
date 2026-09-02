@@ -11,3 +11,8 @@ export interface IUserLoginPayload {
     email: string,
     password:string,
 }
+
+export interface IVerifyEmailPayload {
+	email: string;
+	otp : string;
+}
