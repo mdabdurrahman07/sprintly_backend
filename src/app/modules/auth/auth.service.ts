@@ -82,3 +82,7 @@ const registerUserInDB = async (payload: IUserRegisterPayload) => {
 		html
 	})
 };
+
+export const authServices = {
+  registerUserInDB
+}

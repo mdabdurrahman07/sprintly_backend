@@ -9,6 +9,7 @@ import { config } from "./app/config";
 import httpStatus from "http-status";
 import { globalErrorHandler } from "./app/middleware/globalErrorHandler";
 import { notFound } from "./app/middleware/notFound";
+import { authRoutes } from "./app/modules/auth/auth.route";
 const app: Application = express()
 
 app.use(cors({
@@ -19,6 +20,9 @@ app.use(cors({
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 app.use(cookieParser());
+
+// ? Auth Routes
+app.use("/sprintly/api/v1/auth", authRoutes)
 
 // Basic route
 app.get("/", async (req: Request, res: Response) => {
