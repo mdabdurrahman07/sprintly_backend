@@ -1,16 +1,17 @@
 model Member {
-  id          String   @id @default(uuid())
-  name        String
-  email       String   @unique
-  jobTitle    String?
-  skills      String[]
-  bio         String?
-  avatarUrl   String?
-  phoneNumber String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  userId      String   @unique
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id                         String   @id @default(uuid())
+  name                       String
+  email                      String   @unique
+  jobTitle                   String?
+  skills                     String[]
+  bio                        String?
+  memberAvatarUrl            String?
+  memberProfileImagePublicId String?
+  phoneNumber                String?
+  createdAt                  DateTime @default(now())
+  updatedAt                  DateTime @updatedAt
+  userId                     String   @unique
+  user                       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("members")
 }

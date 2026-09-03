@@ -10,6 +10,7 @@ import httpStatus from "http-status";
 import { globalErrorHandler } from "./app/middleware/globalErrorHandler";
 import { notFound } from "./app/middleware/notFound";
 import { authRoutes } from "./app/modules/auth/auth.route";
+import { profileRoutes } from "./app/modules/profile/profile.route";
 const app: Application = express()
 
 app.use(cors({
@@ -23,6 +24,7 @@ app.use(cookieParser());
 
 // ? Auth Routes
 app.use("/sprintly/api/v1/auth", authRoutes)
+app.use("/sprintly/api/v1/profile", profileRoutes)
 
 // Basic route
 app.get("/", async (req: Request, res: Response) => {
