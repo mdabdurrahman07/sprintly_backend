@@ -2,7 +2,7 @@ import httpStatus from "http-status";
 import { prisma } from "../../lib/prisma";
 import { ReqUser } from "../../middleware/checkAuth";
 import { AppError } from "../../utils/AppError";
-import { IProjectPayload } from "./project.interface";
+import { IProjectPayload, IProjectUpdatePayload } from "./project.interface";
 import { IQuery } from "../../interface";
 import { ProjectWhereInput } from "../../../../generated/prisma/models";
 
@@ -186,9 +186,105 @@ const getSingleProject = async (projectId: string, user: ReqUser) => {
   });
   return project;
 };
-const updateProject = async () => {};
-const deleteProject = async () => {};
-const deleteMemberFromProject = async () => {};
+const updateProject = async (
+  projectId: string,
+  user: ReqUser,
+  payload: IProjectUpdatePayload,
+) => {
+  const { name, description } = payload;
+  const existingUser = await prisma.user.findUnique({
+    where: {
+      id: user.userId,
+      role: user.role,
+    },
+    include: {
+      managerProfile: true,
+    },
+  });
+
+  if (!existingUser) {
+    throw new AppError(httpStatus.NOT_FOUND, "User not found");
+  }
+
+  if (existingUser.isDeleted || existingUser.status === "DELETED") {
+    throw new AppError(
+      httpStatus.FORBIDDEN,
+      "Your account is deleted, please contact an admin",
+    );
+  }
+  if (existingUser.status === "BLOCKED") {
+    throw new AppError(
+      httpStatus.FORBIDDEN,
+      "Your account is blocked, please contact an admin",
+    );
+  }
+  const project = await prisma.project.findUnique({
+    where: {
+      id: projectId,
+      managerId: user.userId,
+    },
+  });
+  if (!project) {
+    throw new AppError(httpStatus.NOT_FOUND, "No project found");
+  }
+  const updatedProject = await prisma.project.update({
+    where: {
+      id: project.id,
+      managerId: user.userId,
+    },
+    data: {
+      name,
+      description,
+    },
+  });
+  return updatedProject;
+};
+const deleteProject = async (projectId: string, user: ReqUser) => {
+  const project = await prisma.project.findUnique({
+    where: {
+      id: projectId,
+      managerId: user.userId,
+    },
+  });
+  if (!project) {
+    throw new AppError(httpStatus.NOT_FOUND, "No project found");
+  }
+  const softDelete = await prisma.project.update({
+    where: {
+      id: project.id,
+      managerId: user.userId,
+    },
+    data: {
+      deletedAt: new Date(),
+      isDeleted: true,
+    },
+  });
+  return softDelete;
+};
+const deleteMemberFromProject = async (
+  user: ReqUser,
+  memberId: string,
+  projectId: string,
+) => {
+  const project = await prisma.project.findUnique({
+    where: {
+      id: projectId,
+      managerId: user.userId,
+    }
+  });
+  if (!project) {
+    throw new AppError(httpStatus.NOT_FOUND, "No project found");
+  }
+  const deleteMember = await prisma.projectMember.delete({
+    where: {
+      projectId_memberId: {
+        projectId: project.id,
+        memberId: memberId,
+      },
+    },
+  });
+  return deleteMember;
+};
 
 export const projectService = {
   createProject,

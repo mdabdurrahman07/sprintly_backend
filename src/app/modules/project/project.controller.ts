@@ -39,7 +39,10 @@ const getSingleProject = catchAsync(async (req: Request, res: Response) => {
 });
 
 const updateProject = catchAsync(async (req: Request, res: Response) => {
-  const result = await projectService.updateProject();
+  const projectId = req.params.id as string
+  const payload = req.body
+  const user = req.user!
+  const result = await projectService.updateProject(projectId, payload, user);
   sendResponse(res, {
     statusCode: httpStatus.OK,
     success: true,
@@ -49,7 +52,9 @@ const updateProject = catchAsync(async (req: Request, res: Response) => {
 });
 
 const deleteProject = catchAsync(async (req: Request, res: Response) => {
-  await projectService.deleteProject();
+   const projectId = req.params.id as string
+  const user = req.user!
+  await projectService.deleteProject(projectId, user);
   sendResponse(res, {
     statusCode: httpStatus.NO_CONTENT,
     success: true,
@@ -59,7 +64,10 @@ const deleteProject = catchAsync(async (req: Request, res: Response) => {
 
 const deleteMemberFromProject = catchAsync(
   async (req: Request, res: Response) => {
-    await projectService.deleteMemberFromProject();
+    const user = req.user!
+    const projectId = req.params.id as string
+    const memberId = req.body
+    await projectService.deleteMemberFromProject(user, memberId, projectId);
     sendResponse(res, {
       statusCode: httpStatus.OK,
       success: true,
