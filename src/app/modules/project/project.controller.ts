@@ -16,7 +16,8 @@ const createProject = catchAsync(async (req: Request, res: Response) => {
   });
 });
 const getProjects = catchAsync(async (req: Request, res: Response) => {
-  const result = await projectService.getProjects();
+  const user = req.user!
+  const result = await projectService.getProjects(user, req.query);
   sendResponse(res, {
     statusCode: httpStatus.OK,
     success: true,
@@ -26,7 +27,9 @@ const getProjects = catchAsync(async (req: Request, res: Response) => {
 });
 
 const getSingleProject = catchAsync(async (req: Request, res: Response) => {
-  const result = await projectService.getSingleProject();
+  const projectId = req.params.id as string
+  const user = req.user!
+  const result = await projectService.getSingleProject(projectId, user);
   sendResponse(res, {
     statusCode: httpStatus.OK,
     success: true,
