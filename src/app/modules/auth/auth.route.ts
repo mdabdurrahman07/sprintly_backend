@@ -24,8 +24,9 @@ router.post(
 );
 router.get(
   "/me",
+   auth(Role.ADMIN, Role.MANAGER, Role.MEMBER),
   authController.getMe,
-  auth(Role.ADMIN, Role.MANAGER, Role.MEMBER),
+ 
 );
 router.post("/refresh-token", authController.refreshToken);
 router.post("/google", authController.googleLogin);

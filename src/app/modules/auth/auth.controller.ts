@@ -74,7 +74,7 @@ const getMe = catchAsync(async (req: Request, res: Response) => {
   if (!user) {
     throw new AppError(
       httpStatus.NOT_ACCEPTABLE,
-      "User information is missing",
+      "User information is missing or User need to login first",
     );
   }
   const result = await authServices.getMe(user);
