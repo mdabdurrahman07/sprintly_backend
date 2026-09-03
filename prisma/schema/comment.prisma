@@ -1,0 +1,15 @@
+model Comment {
+  id        String    @id @default(uuid())
+  content   String
+  taskId    String
+  memberId  String
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  task   Task   @relation(fields: [taskId], references: [id])
+  member Member @relation(fields: [memberId], references: [id])
+
+  @@index([taskId])
+  @@map("comments")
+}

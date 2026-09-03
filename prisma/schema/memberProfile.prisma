@@ -1,17 +1,20 @@
 model Member {
-  id                         String   @id @default(uuid())
+  id                         String          @id @default(uuid())
   name                       String
-  email                      String   @unique
+  email                      String          @unique
   jobTitle                   String?
   skills                     String[]
   bio                        String?
   memberAvatarUrl            String?
   memberProfileImagePublicId String?
   phoneNumber                String?
-  createdAt                  DateTime @default(now())
-  updatedAt                  DateTime @updatedAt
-  userId                     String   @unique
-  user                       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt                  DateTime        @default(now())
+  updatedAt                  DateTime        @updatedAt
+  userId                     String          @unique
+  user                       User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  projectMemberships         ProjectMember[]
+  assignedTasks              Task[]          @relation("TaskAssignee")
+  comments                   Comment[]
 
   @@map("members")
 }

@@ -1,0 +1,19 @@
+model Payment {
+  id             String        @id @default(uuid())
+  managerId      String
+  subscriptionId String?
+  amount         Decimal       @db.Decimal(10, 2)
+  currency       String        @default("BDT")
+  status         PaymentStatus @default(PENDING)
+  bkashTrxId     String?       @unique
+  bkashPaymentId String?       @unique
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  manager      Manager       @relation(fields: [managerId], references: [id])
+  subscription Subscription? @relation(fields: [subscriptionId], references: [id])
+
+  @@index([managerId])
+  @@index([status])
+  @@map("payments")
+}

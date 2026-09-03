@@ -1,16 +1,19 @@
 model Manager {
-  id                          String   @id @default(uuid())
+  id                          String        @id @default(uuid())
   name                        String
-  email                       String   @unique
+  email                       String        @unique
   department                  String?
   bio                         String?
   managerAvatarUrl            String?
   managerProfileImagePublicId String?
   phoneNumber                 String?
-  createdAt                   DateTime @default(now())
-  updatedAt                   DateTime @updatedAt
-  userId                      String   @unique
-  user                        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt                   DateTime      @default(now())
+  updatedAt                   DateTime      @updatedAt
+  userId                      String        @unique
+  user                        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  projects                    Project[]
+  subscription                Subscription?
+  payments                    Payment[]
 
   @@map("managers")
 }
