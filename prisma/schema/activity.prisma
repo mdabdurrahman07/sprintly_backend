@@ -1,0 +1,14 @@
+model ActivityLog {
+  id          String   @id @default(uuid())
+  actorUserId String
+  action      String // e.g. "TASK_STATUS_CHANGED", "PROJECT_CREATED"
+  entityType  String // e.g. "Task", "Project", "Payment"
+  entityId    String
+  metadata    Json?
+  createdAt   DateTime @default(now())
+  actor       User     @relation(fields: [actorUserId], references: [id], onDelete: Cascade)
+
+  @@index([entityType, entityId])
+  @@index([actorUserId])
+  @@map("activity_logs")
+}

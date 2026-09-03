@@ -1,20 +1,21 @@
 model User {
-  id                 String       @id @default(uuid())
+  id                 String        @id @default(uuid())
   name               String
-  email              String       @unique
+  email              String        @unique
   password           String?
-  googleId           String?      @unique
-  authProvider       AuthProvider @default(CREDENTIAL)
-  emailVerified      Boolean      @default(false)
-  status             UserStatus   @default(ACTIVE)
-  needPasswordChange Boolean      @default(false)
-  isDeleted          Boolean      @default(false)
+  googleId           String?       @unique
+  authProvider       AuthProvider  @default(CREDENTIAL)
+  emailVerified      Boolean       @default(false)
+  status             UserStatus    @default(ACTIVE)
+  needPasswordChange Boolean       @default(false)
+  isDeleted          Boolean       @default(false)
   deletedAt          DateTime?
-  role               Role         @default(MEMBER)
-  createdAt          DateTime     @default(now())
-  updatedAt          DateTime     @updatedAt
+  role               Role          @default(MEMBER)
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
   managerProfile     Manager?
   memberProfile      Member?
+  activityLogs       ActivityLog[]
 
   @@map("users")
 }

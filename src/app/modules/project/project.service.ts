@@ -5,6 +5,7 @@ import { AppError } from "../../utils/AppError";
 import { IProjectPayload, IProjectUpdatePayload } from "./project.interface";
 import { IQuery } from "../../interface";
 import { ProjectWhereInput } from "../../../../generated/prisma/models";
+import { logActivity } from "../../utils/logActivity";
 
 const createProject = async (payload: IProjectPayload, user: ReqUser) => {
   const { name, description } = payload;
@@ -68,6 +69,12 @@ const createProject = async (payload: IProjectPayload, user: ReqUser) => {
       tasks: true,
     },
   });
+  await logActivity({
+    actorUserId: user.userId,
+    action: "Project created",
+    entityType: "Project",
+    entityId: user.userId,
+  })
   return createdProject;
 };
 const getProjects = async (user: ReqUser, query: IQuery) => {
@@ -137,6 +144,12 @@ const getProjects = async (user: ReqUser, query: IQuery) => {
       AND: andConditions,
     },
   });
+  await logActivity({
+    actorUserId: user.userId,
+    action: "Project fetched",
+    entityType: "Project",
+    entityId: user.userId,
+  })
   return {
     data: projects,
     meta: {
@@ -184,6 +197,12 @@ const getSingleProject = async (projectId: string, user: ReqUser) => {
       },
     },
   });
+   await logActivity({
+    actorUserId: user.userId,
+    action: "Single Project fetched",
+    entityType: "Project",
+    entityId: projectId,
+  })
   return project;
 };
 const updateProject = async (
@@ -237,6 +256,12 @@ const updateProject = async (
       description,
     },
   });
+   await logActivity({
+    actorUserId: user.userId,
+    action: "Project updated",
+    entityType: "Project",
+    entityId: projectId,
+  })
   return updatedProject;
 };
 const deleteProject = async (projectId: string, user: ReqUser) => {
@@ -259,6 +284,12 @@ const deleteProject = async (projectId: string, user: ReqUser) => {
       isDeleted: true,
     },
   });
+   await logActivity({
+    actorUserId: user.userId,
+    action: "Project deleted(soft-delete)",
+    entityType: "Project",
+    entityId: projectId,
+  })
   return softDelete;
 };
 const deleteMemberFromProject = async (
@@ -283,6 +314,12 @@ const deleteMemberFromProject = async (
       },
     },
   });
+   await logActivity({
+    actorUserId: user.userId,
+    action: "Member deleted from Project",
+    entityType: "Project",
+    entityId: memberId,
+  })
   return deleteMember;
 };
 
