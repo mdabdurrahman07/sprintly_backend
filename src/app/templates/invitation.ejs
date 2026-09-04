@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Project Invitation - Sprintly</title>
+    <style>
+      body { 
+        font-family: Arial, sans-serif; 
+        background: #f7f7f7; 
+        color: #333; 
+        margin: 0; 
+        padding: 20px; 
+      }
+      .container { 
+        max-width: 500px; 
+        width: 100%;
+        margin: 40px auto; 
+        background: #fff; 
+        padding: 30px; 
+        border-radius: 8px; 
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08); 
+        box-sizing: border-box;
+      }
+      .project-card {
+        background: #f0f4ff;
+        border: 1px solid #d0e1ff;
+        border-radius: 6px;
+        padding: 16px 20px;
+        margin: 20px 0;
+        text-align: left;
+      }
+      .project-title {
+        font-size: 18px;
+        font-weight: bold;
+        color: #007bff;
+        margin-bottom: 8px;
+      }
+      .detail-item {
+        font-size: 14px;
+        color: #555;
+        margin: 4px 0;
+      }
+      .detail-label {
+        font-weight: bold;
+      }
+      .btn-container {
+        margin-top: 25px;
+      }
+      .btn {
+        display: inline-block;
+        padding: 12px 24px;
+        background: #007bff;
+        color: #ffffff !important;
+        text-decoration: none;
+        font-weight: bold;
+        border-radius: 4px;
+      }
+      .footer { 
+        margin-top: 30px; 
+        font-size: 12px; 
+        color: #888; 
+      }
+      /* Mobile Responsiveness */
+      @media screen and (max-width: 600px) {
+        body {
+          padding: 10px;
+        }
+        .container {
+          margin: 10px auto;
+          padding: 20px;
+        }
+        .btn {
+          display: block;
+          text-align: center;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h2>You've Been Invited!</h2>
+      <p>Hello <%= name %>,</p>
+      <p>You have been invited to join a project on <strong>Sprintly</strong>.</p>
+      
+      <div class="project-card">
+        <div class="project-title"><%= projectName %></div>
+        <div class="detail-item">
+          <span class="detail-label">Invited Email:</span> <%= email %>
+        </div>
+        <div class="detail-item">
+          <span class="detail-label">Invited By:</span> <%= typeof inviterName !== 'undefined' ? inviterName : 'A team member' %>
+        </div>
+      </div>
+
+      <!-- 
+ <p>Click the button below to accept the invitation and start collaborating:</p>
+
+      <div class="btn-container">
+        <a href="<%= inviteUrl %>" class="btn">Accept Invitation</a>
+      </div>
+-->
+
+     
+
+      <p style="margin-top: 20px; font-size: 13px; color: #666;">
+        If you did not expect this invitation to <%= email %>, you can safely ignore this email.
+      </p>
+
+      <div class="footer">&copy; Sprintly. All rights reserved.</div>
+    </div>
+  </body>
+</html>

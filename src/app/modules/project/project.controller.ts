@@ -75,6 +75,30 @@ const deleteMemberFromProject = catchAsync(
     });
   },
 );
+const createTask = catchAsync(async (req: Request, res: Response) => {
+    const payload = req.body
+    const projectId = req.params.id as string
+    const user  = req.user!
+  const result = await projectService.createTask(payload, projectId, user);
+  sendResponse(res, {
+    statusCode: httpStatus.CREATED,
+    success: true,
+    message: "Task is created",
+    data: result,
+  });
+});
+const getTask = catchAsync(async (req: Request, res: Response) => {
+  const user = req.user!
+  const query = req.query
+  const projectId = req.params.id as string
+  const result = await projectService.getTask(projectId, query, user);
+  sendResponse(res, {
+    statusCode: httpStatus.OK,
+    success: true,
+    message: "Task fetched successfully",
+    data: result,
+  });
+});
 
 export const projectController = {
   createProject,
@@ -83,4 +107,6 @@ export const projectController = {
   updateProject,
   deleteProject,
   deleteMemberFromProject,
+  createTask,
+  getTask
 };

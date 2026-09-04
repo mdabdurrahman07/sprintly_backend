@@ -2,199 +2,17 @@ import httpStatus from "http-status";
 import { prisma } from "../../lib/prisma";
 import { ReqUser } from "../../middleware/checkAuth";
 import { AppError } from "../../utils/AppError";
-import { ICreateTaskInput } from "./task.interface";
+import { ICreateTaskInput, IUpdateTaskInput } from "./task.interface";
 import { IQuery } from "../../interface";
 import { TaskWhereInput } from "../../../../generated/prisma/models";
 import { logActivity } from "../../utils/logActivity";
+import { TaskStatus } from "../../../../generated/prisma/enums";
+import path from "node:path";
+import ejs from "ejs";
+import { transporter } from "../../lib/nodemailer";
+import { config } from "../../config";
 
-const createTask = async (
-  payload: ICreateTaskInput,
-  projectId: string,
-  user: ReqUser,
-) => {
-  const existingUser = await prisma.user.findUnique({
-    where: {
-      id: user.userId,
-      role: user.role,
-    },
-    include: {
-      managerProfile: true,
-    },
-  });
 
-  if (!existingUser) {
-    throw new AppError(httpStatus.NOT_FOUND, "User not found");
-  }
-
-  if (existingUser.role !== "MANAGER") {
-    throw new AppError(httpStatus.FORBIDDEN, "Only manager can create task");
-  }
-
-  if (existingUser.isDeleted || existingUser.status === "DELETED") {
-    throw new AppError(
-      httpStatus.FORBIDDEN,
-      "Your account is deleted, please contact an admin",
-    );
-  }
-  if (existingUser.status === "BLOCKED") {
-    throw new AppError(
-      httpStatus.FORBIDDEN,
-      "Your account is blocked, please contact an admin",
-    );
-  }
-  const manager = await prisma.manager.findUnique({
-    where: {
-      id: existingUser.managerProfile?.id,
-      email: existingUser.managerProfile?.email,
-    },
-    include: {
-      subscription: true,
-      payments: true,
-    },
-  });
-  if (!manager) {
-    throw new AppError(httpStatus.NOT_FOUND, "Manager not found");
-  }
-  if (
-    manager.subscription?.status !== "ACTIVE" &&
-    manager.subscription?.plan !== "PRO"
-  ) {
-    throw new AppError(
-      httpStatus.BAD_REQUEST,
-      "Your current subscription plan is not Active or your subscription plan is not pro yet sp  kindly purchase subscription then try to create task",
-    );
-  }
-  const createTask = await prisma.task.create({
-    data: {
-      projectId,
-      ...payload,
-    },
-    include: {
-      project: {
-        select: {
-          id: true,
-          name: true,
-          manager: true,
-        },
-      },
-      comments: {
-        select: {
-          id: true,
-          member: true,
-          content: true,
-        },
-      },
-      assignee: true,
-    },
-  });
-  await logActivity({
-    actorUserId: user.userId,
-    action: "Task created",
-    entityType: "Task",
-    entityId: user.userId,
-  });
-  return createTask;
-};
-const getTask = async (projectId: string, query: IQuery, user: ReqUser) => {
-  const existingUser = await prisma.user.findUnique({
-    where: {
-      id: user.userId,
-      role: user.role,
-    },
-    include: {
-      managerProfile: {
-        select: {
-          id: true,
-          email: true,
-        },
-      },
-      memberProfile: {
-        select: {
-          id: true,
-          email: true,
-        },
-      },
-    },
-  });
-  if (!existingUser) {
-    throw new AppError(httpStatus.NOT_FOUND, "User not found");
-  }
-  const limit = query.limit ? Number(query.limit) : 10;
-  const page = query.page ? Number(query.page) : 1;
-  const skip = (page - 1) * limit;
-  const sortBy = query.sortBy ? query.sortBy : "createdAt";
-  const sortOrder = query.sortOrder ? query.sortOrder : "desc";
-  const andConditions: TaskWhereInput[] = [];
-  andConditions.push({
-    OR: [
-      { assigneeId: existingUser?.memberProfile?.id },
-      { projectId: projectId },
-    ],
-  });
-  if (query.searchTerm) {
-    andConditions.push({
-      OR: [
-        { title: { contains: query.search, mode: "insensitive" } },
-        { description: { contains: query.search, mode: "insensitive" } },
-      ],
-    });
-  }
-  if (query.status) {
-    andConditions.push({
-      status: query.status,
-    });
-  }
-  if (query.priority) {
-    andConditions.push({
-      status: query.priority,
-    });
-  }
-  const task = await prisma.task.findMany({
-    where: {
-      AND: andConditions,
-    },
-    take: limit,
-    skip,
-    orderBy: { [sortBy]: sortOrder },
-    include: {
-      project: {
-        select: {
-          id: true,
-          name: true,
-          manager: true,
-        },
-      },
-      comments: {
-        select: {
-          id: true,
-          member: true,
-          content: true,
-        },
-      },
-      assignee: true,
-    },
-  });
-  const total = await prisma.task.count({
-    where: {
-      AND: andConditions,
-    },
-  });
-  await logActivity({
-    actorUserId: user.userId,
-    action: "Task fetched",
-    entityType: "Task",
-    entityId: user.userId,
-  });
-  return {
-    data: task,
-    meta: {
-      page,
-      limit,
-      total,
-      totalPages: Math.ceil(total / limit),
-    },
-  };
-};
 const getMyAssignedTask = async (user: ReqUser) => {
   const existingUser = await prisma.user.findUnique({
     where: {
@@ -216,15 +34,232 @@ const getMyAssignedTask = async (user: ReqUser) => {
   if (!task) {
     throw new AppError(httpStatus.NOT_FOUND, "Task not found");
   }
+  await logActivity({
+    actorUserId: user.userId,
+    action: "Get Assigned Task",
+    entityType: "Task",
+    entityId: user.userId,
+  });
   return task;
 };
-const getTaskDetails = async () => {};
-const updateTask = async () => {};
-const assignTaskToMember = async () => {};
+const getTaskDetails = async (taskId: string, user: ReqUser) => {
+  const existingUser = await prisma.user.findUnique({
+    where: {
+      id: user.userId,
+      role: user.role,
+    },
+    include: {
+      memberProfile: true,
+      managerProfile: true,
+    },
+  });
+  if (!existingUser) {
+    throw new AppError(httpStatus.NOT_FOUND, "User not found");
+  }
+  const singleTask = await prisma.task.findUnique({
+    where: {
+      id: taskId,
+      assigneeId: existingUser.memberProfile?.id,
+    },
+    include: {
+      project: {
+        select: {
+          id: true,
+          name: true,
+          manager: true,
+        },
+      },
+      comments: {
+        select: {
+          id: true,
+          member: true,
+          content: true,
+        },
+      },
+      assignee: true,
+    },
+  });
+  if (!singleTask) {
+    throw new AppError(httpStatus.NOT_FOUND, "Single task not found");
+  }
+  await logActivity({
+    actorUserId: user.userId,
+    action: "get Single Task",
+    entityType: "Task",
+    entityId: user.userId,
+  });
+  return singleTask;
+};
+const updateTask = async (
+  payload: IUpdateTaskInput,
+  taskId: string,
+  user: ReqUser,
+) => {
+  const task = await prisma.task.findUnique({
+    where: { id: taskId },
+  });
+
+  if (!task) {
+    throw new AppError(httpStatus.NOT_FOUND, "Task not found");
+  }
+  const existingUser = await prisma.user.findUnique({
+    where: { id: user.userId },
+    include: {
+      memberProfile: true,
+      managerProfile: true,
+    },
+  });
+
+  if (!existingUser) {
+    throw new AppError(httpStatus.NOT_FOUND, "User not found");
+  }
+  const isManager = !!existingUser.managerProfile;
+  const isAdmin = user.role === "ADMIN";
+  const isPrivileged = isManager || isAdmin;
+
+  const coreFields: (keyof IUpdateTaskInput)[] = [
+    "title",
+    "description",
+    "priority",
+    "labels",
+  ];
+  const hasModifiedCoreField = (
+    Object.keys(payload) as (keyof IUpdateTaskInput)[]
+  ).some((key) => coreFields.includes(key) && payload[key] !== undefined);
+  if (hasModifiedCoreField && !isPrivileged) {
+    throw new AppError(
+      httpStatus.FORBIDDEN,
+      "Only managers or admins can modify core task details.",
+    );
+  }
+  if (payload.status && payload.status !== task.status) {
+    const newStatus = payload.status;
+    if (newStatus === TaskStatus.DONE && !isPrivileged) {
+      throw new AppError(
+        httpStatus.FORBIDDEN,
+        "Only managers or admins can mark a task as Done.",
+      );
+    }
+    if (!isPrivileged) {
+      const validTransitions: Record<TaskStatus, TaskStatus[]> = {
+        [TaskStatus.TODO]: [TaskStatus.IN_PROGRESS],
+        [TaskStatus.IN_PROGRESS]: [TaskStatus.IN_REVIEW],
+        [TaskStatus.IN_REVIEW]: [TaskStatus.IN_REVIEW],
+        [TaskStatus.DONE]: [],
+      };
+      const allowed = validTransitions[task.status] || [];
+      if (!allowed.includes(newStatus)) {
+        throw new AppError(
+          httpStatus.BAD_REQUEST,
+          `Invalid status transition from ${task.status} to ${newStatus}`,
+        );
+      }
+    }
+  }
+  const updatedTask = prisma.task.update({
+    where: {
+      id: taskId,
+    },
+    data: payload,
+  });
+  await logActivity({
+    actorUserId: user.userId,
+    action: "Task updated",
+    entityType: "Task",
+    entityId: user.userId,
+  });
+  return updatedTask;
+};
+const assignTaskToMember = async (
+  taskId: string,
+  memberId: string,
+) => {
+  if (!taskId || !memberId) {
+    throw new AppError(
+      httpStatus.BAD_REQUEST,
+      "TaskId and MemberId are required",
+    );
+  }
+
+  const task = await prisma.task.findUnique({
+    where: { id: taskId },
+    include: {
+      project: {
+        select: {
+          name: true,
+          manager: {
+            select: {
+              name: true,
+              email: true,
+            },
+          },
+        },
+      },
+    },
+  });
+
+  if (!task) {
+    throw new AppError(httpStatus.NOT_FOUND, "Task not found");
+  }
+
+  const member = await prisma.member.findUnique({
+    where: { id: memberId },
+  });
+
+  if (!member) {
+    throw new AppError(httpStatus.NOT_FOUND, "Member not found");
+  }
+
+  const result = await prisma.$transaction(async (tx) => {
+    await tx.projectMember.upsert({
+      where: {
+        projectId_memberId: {
+          projectId: task.projectId,
+          memberId: memberId,
+        },
+      },
+      update: {},
+      create: {
+        projectId: task.projectId,
+        memberId: memberId,
+      },
+    });
+    return tx.task.update({
+      where: { id: taskId },
+      data: {
+        assigneeId: memberId,
+      },
+    });
+  });
+  // ejs
+  const templatePath = path.join(
+    process.cwd(),
+    "src/app/templates/invitation.ejs",
+  );
+
+  const templateData = {
+    name: member.name,
+    projectName: task.project.name,
+    email: task.project.manager.email,
+    inviterName: task.project.manager.name,
+  };
+
+  const html = await ejs.renderFile(templatePath, templateData);
+  await transporter.sendMail({
+    from: config.email_sender,
+    to: member.email,
+    subject: "Project Task Invitation",
+    html,
+  });
+  await prisma.task.update({
+    where: { id: taskId },
+    data: { assignmentNotifiedAt: new Date() },
+  });
+
+  return result;
+};
 
 export const taskServices = {
-  createTask,
-  getTask,
   getMyAssignedTask,
   getTaskDetails,
   updateTask,

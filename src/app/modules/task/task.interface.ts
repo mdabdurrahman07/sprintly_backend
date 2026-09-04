@@ -16,5 +16,4 @@ export interface IUpdateTaskInput {
   priority?: TaskPriority;
   labels?: string[];
   assigneeId?: string | null;
-  isDeleted?: boolean;
 }
