@@ -17,7 +17,10 @@ const createTask = catchAsync(async (req: Request, res: Response) => {
   });
 });
 const getTask = catchAsync(async (req: Request, res: Response) => {
-  const result = await taskServices.getTask();
+  const user = req.user!
+  const query = req.query
+  const projectId = req.params.id as string
+  const result = await taskServices.getTask(projectId, query, user);
   sendResponse(res, {
     statusCode: httpStatus.OK,
     success: true,
@@ -26,7 +29,8 @@ const getTask = catchAsync(async (req: Request, res: Response) => {
   });
 });
 const getMyAssignedTask = catchAsync(async (req: Request, res: Response) => {
-  const result = await taskServices.getMyAssignedTask();
+  const user = req.user!
+  const result = await taskServices.getMyAssignedTask(user);
   sendResponse(res, {
     statusCode: httpStatus.OK,
     success: true,

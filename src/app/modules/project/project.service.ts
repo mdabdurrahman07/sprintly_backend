@@ -82,6 +82,20 @@ const createProject = async (payload: IProjectPayload, user: ReqUser) => {
   return createdProject;
 };
 const getProjects = async (user: ReqUser, query: IQuery) => {
+  const existingUser = await prisma.user.findUnique({
+    where: {
+      id: user.userId,
+      role: user.role,
+    },
+    include: {
+      managerProfile: true,
+      memberProfile: true
+    },
+  });
+
+  if (!existingUser) {
+    throw new AppError(httpStatus.NOT_FOUND, "User not found");
+  }
   const limit = query.limit ? Number(query.limit) : 10;
   const page = query.page ? Number(query.page) : 1;
   const skip = (page - 1) * limit;
@@ -91,8 +105,8 @@ const getProjects = async (user: ReqUser, query: IQuery) => {
   const andConditions: ProjectWhereInput[] = [];
   andConditions.push({
     OR: [
-      { managerId: user.userId },
-      { members: { some: { memberId: user.userId } } },
+      { managerId: existingUser.managerProfile?.id },
+      { members: { some: { memberId: existingUser.memberProfile?.id} } },
     ],
   });
   if (query.status) {
@@ -165,12 +179,26 @@ const getProjects = async (user: ReqUser, query: IQuery) => {
   };
 };
 const getSingleProject = async (projectId: string, user: ReqUser) => {
+    const existingUser = await prisma.user.findUnique({
+    where: {
+      id: user.userId,
+      role: user.role,
+    },
+    include: {
+      managerProfile: true,
+      memberProfile: true
+    },
+  });
+
+  if (!existingUser) {
+    throw new AppError(httpStatus.NOT_FOUND, "User not found");
+  }
   const project = await prisma.project.findUnique({
     where: {
       id: projectId,
       OR: [
-        { managerId: user.userId },
-        { members: { some: { memberId: user.userId } } },
+        { managerId: existingUser.managerProfile?.id },
+        { members: { some: { memberId: existingUser.memberProfile?.id } } },
       ],
     },
     include: {
@@ -248,7 +276,7 @@ const updateProject = async (
   const project = await prisma.project.findUnique({
     where: {
       id: projectId,
-      managerId: user.userId,
+      managerId: existingUser.managerProfile?.id,
     },
   });
   if (!project) {
@@ -257,7 +285,7 @@ const updateProject = async (
   const updatedProject = await prisma.project.update({
     where: {
       id: project.id,
-      managerId: user.userId,
+      managerId: existingUser.managerProfile?.id,
     },
     data: {
       name,
@@ -273,10 +301,23 @@ const updateProject = async (
   return updatedProject;
 };
 const deleteProject = async (projectId: string, user: ReqUser) => {
+  const existingUser = await prisma.user.findUnique({
+    where: {
+      id: user.userId,
+      role: user.role,
+    },
+    include: {
+      managerProfile: true,
+    },
+  });
+
+  if (!existingUser) {
+    throw new AppError(httpStatus.NOT_FOUND, "User not found");
+  }
   const project = await prisma.project.findUnique({
     where: {
       id: projectId,
-      managerId: user.userId,
+      managerId: existingUser.managerProfile?.id,
     },
   });
   if (!project) {
@@ -285,7 +326,7 @@ const deleteProject = async (projectId: string, user: ReqUser) => {
   const softDelete = await prisma.project.update({
     where: {
       id: project.id,
-      managerId: user.userId,
+      managerId: existingUser.managerProfile?.id,
     },
     data: {
       deletedAt: new Date(),
@@ -305,10 +346,24 @@ const deleteMemberFromProject = async (
   memberId: string,
   projectId: string,
 ) => {
+  const existingUser = await prisma.user.findUnique({
+    where: {
+      id: user.userId,
+      role: user.role,
+    },
+    include: {
+      managerProfile: true,
+      memberProfile: true
+    },
+  });
+
+  if (!existingUser) {
+    throw new AppError(httpStatus.NOT_FOUND, "User not found");
+  }
   const project = await prisma.project.findUnique({
     where: {
       id: projectId,
-      managerId: user.userId,
+      managerId: existingUser.managerProfile?.id,
     }
   });
   if (!project) {
@@ -339,3 +394,6 @@ export const projectService = {
   deleteProject,
   deleteMemberFromProject,
 };
+
+// TODO
+// * select only id and email of existingUser
