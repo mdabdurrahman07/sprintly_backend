@@ -23,6 +23,10 @@ const createProject = async (payload: IProjectPayload, user: ReqUser) => {
     throw new AppError(httpStatus.NOT_FOUND, "User not found");
   }
 
+  if(existingUser.role !== "MANAGER"){
+    throw new AppError(httpStatus.FORBIDDEN, "Only manager can create project")
+  }
+
   if (existingUser.isDeleted || existingUser.status === "DELETED") {
     throw new AppError(
       httpStatus.FORBIDDEN,
@@ -223,6 +227,10 @@ const updateProject = async (
 
   if (!existingUser) {
     throw new AppError(httpStatus.NOT_FOUND, "User not found");
+  }
+
+  if(existingUser.role !== "MANAGER"){
+    throw new AppError(httpStatus.FORBIDDEN, "Only manager can update project")
   }
 
   if (existingUser.isDeleted || existingUser.status === "DELETED") {
