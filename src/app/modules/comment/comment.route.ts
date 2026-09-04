@@ -18,8 +18,6 @@ router.get(
   auth(Role.MEMBER, Role.MANAGER),
   commentController.getComments,
 );
-router.delete(
-  "/comments/:id",
-  auth(Role.MEMBER),
-  commentController.deleteComment,
-);
+router.delete("/:id", auth(Role.MEMBER), commentController.deleteComment);
+
+export const commentRoute = router;
