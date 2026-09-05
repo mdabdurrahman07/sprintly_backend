@@ -1,5 +1,6 @@
 model Payment {
   id                    String        @id @default(uuid())
+  planId                String?
   managerId             String
   subscriptionId        String?
   amount                Decimal       @db.Decimal(10, 2)
@@ -22,6 +23,7 @@ model Payment {
 
   manager      Manager       @relation(fields: [managerId], references: [id])
   subscription Subscription? @relation(fields: [subscriptionId], references: [id])
+  plan         Plan?         @relation(fields: [planId], references: [id])
 
   @@index([managerId])
   @@index([subscriptionId])

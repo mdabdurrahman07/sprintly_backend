@@ -4,7 +4,7 @@ model Subscription {
   managerId String @unique
   planId    String
 
-  status SubscriptionStatus @default(ACTIVE)
+  status SubscriptionStatus @default(IN_ACTIVE)
 
   startDate DateTime
   endDate   DateTime

@@ -6,6 +6,7 @@ model Plan {
   description String?
 
   subscriptions Subscription[]
+  payments      Payment[]
 
   @@map("plans")
 }

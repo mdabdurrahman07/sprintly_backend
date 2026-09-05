@@ -24,7 +24,7 @@ enum SubscriptionStatus {
   ACTIVE
   EXPIRED
   CANCELLED
-  PAST_DUE
+  IN_ACTIVE
 }
 
 enum PaymentStatus {
