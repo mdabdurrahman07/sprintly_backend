@@ -30,11 +30,7 @@ const createPlan = async (user: ReqUser, payload: ICreatePlanPayload) => {
   return createdPlan;
 };
 const getPlan = async () => {
-  const plans = await prisma.plan.findMany({
-    include: {
-      subscriptions: true,
-    },
-  });
+  const plans = await prisma.plan.findMany();
   return plans;
 };
 const updatePlan = async (
