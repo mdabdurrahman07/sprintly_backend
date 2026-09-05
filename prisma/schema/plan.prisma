@@ -1,0 +1,11 @@
+model Plan {
+  id          String           @id @default(uuid())
+  name        SubscriptionPlan @unique
+  price       Decimal          @db.Decimal(10, 2)
+  currency    String           @default("BDT")
+  description String?
+
+  subscriptions Subscription[]
+
+  @@map("plans")
+}

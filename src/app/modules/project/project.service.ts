@@ -4,9 +4,13 @@ import { ReqUser } from "../../middleware/checkAuth";
 import { AppError } from "../../utils/AppError";
 import { IProjectPayload, IProjectUpdatePayload } from "./project.interface";
 import { IQuery } from "../../interface";
-import { ProjectWhereInput, TaskWhereInput } from "../../../../generated/prisma/models";
+import {
+  ProjectWhereInput,
+  TaskWhereInput,
+} from "../../../../generated/prisma/models";
 import { logActivity } from "../../utils/logActivity";
 import { ICreateTaskInput } from "../task/task.interface";
+import { isSubscriptionActive } from "../../utils/helper";
 
 const createProject = async (payload: IProjectPayload, user: ReqUser) => {
   const { name, description } = payload;
@@ -24,8 +28,8 @@ const createProject = async (payload: IProjectPayload, user: ReqUser) => {
     throw new AppError(httpStatus.NOT_FOUND, "User not found");
   }
 
-  if(existingUser.role !== "MANAGER"){
-    throw new AppError(httpStatus.FORBIDDEN, "Only manager can create project")
+  if (existingUser.role !== "MANAGER") {
+    throw new AppError(httpStatus.FORBIDDEN, "Only manager can create project");
   }
 
   if (existingUser.isDeleted || existingUser.status === "DELETED") {
@@ -53,13 +57,11 @@ const createProject = async (payload: IProjectPayload, user: ReqUser) => {
   if (!manager) {
     throw new AppError(httpStatus.NOT_FOUND, "Manager not found");
   }
-  if (
-    manager.subscription?.status !== "ACTIVE" &&
-    manager.subscription?.plan !== "PRO"
-  ) {
+  const hasActiveSubscription = isSubscriptionActive(manager.subscription);
+  if (!hasActiveSubscription) {
     throw new AppError(
       httpStatus.BAD_REQUEST,
-      "Your current subscription plan is not Active or your subscription plan is not pro yet sp  kindly purchase subscription then try to create project",
+      "Your current subscription is not active or has expired. Please purchase a valid subscription to create projects.",
     );
   }
   const createdProject = await prisma.project.create({
@@ -79,7 +81,7 @@ const createProject = async (payload: IProjectPayload, user: ReqUser) => {
     action: "Project created",
     entityType: "Project",
     entityId: user.userId,
-  })
+  });
   return createdProject;
 };
 const getProjects = async (user: ReqUser, query: IQuery) => {
@@ -90,7 +92,7 @@ const getProjects = async (user: ReqUser, query: IQuery) => {
     },
     include: {
       managerProfile: true,
-      memberProfile: true
+      memberProfile: true,
     },
   });
 
@@ -107,7 +109,7 @@ const getProjects = async (user: ReqUser, query: IQuery) => {
   andConditions.push({
     OR: [
       { managerId: existingUser.managerProfile?.id },
-      { members: { some: { memberId: existingUser.memberProfile?.id} } },
+      { members: { some: { memberId: existingUser.memberProfile?.id } } },
     ],
   });
   if (query.status) {
@@ -168,7 +170,7 @@ const getProjects = async (user: ReqUser, query: IQuery) => {
     action: "Project fetched",
     entityType: "Project",
     entityId: user.userId,
-  })
+  });
   return {
     data: projects,
     meta: {
@@ -180,14 +182,14 @@ const getProjects = async (user: ReqUser, query: IQuery) => {
   };
 };
 const getSingleProject = async (projectId: string, user: ReqUser) => {
-    const existingUser = await prisma.user.findUnique({
+  const existingUser = await prisma.user.findUnique({
     where: {
       id: user.userId,
       role: user.role,
     },
     include: {
       managerProfile: true,
-      memberProfile: true
+      memberProfile: true,
     },
   });
 
@@ -230,12 +232,12 @@ const getSingleProject = async (projectId: string, user: ReqUser) => {
       },
     },
   });
-   await logActivity({
+  await logActivity({
     actorUserId: user.userId,
     action: "Single Project fetched",
     entityType: "Project",
     entityId: projectId,
-  })
+  });
   return project;
 };
 const updateProject = async (
@@ -258,8 +260,8 @@ const updateProject = async (
     throw new AppError(httpStatus.NOT_FOUND, "User not found");
   }
 
-  if(existingUser.role !== "MANAGER"){
-    throw new AppError(httpStatus.FORBIDDEN, "Only manager can update project")
+  if (existingUser.role !== "MANAGER") {
+    throw new AppError(httpStatus.FORBIDDEN, "Only manager can update project");
   }
 
   if (existingUser.isDeleted || existingUser.status === "DELETED") {
@@ -293,12 +295,12 @@ const updateProject = async (
       description,
     },
   });
-   await logActivity({
+  await logActivity({
     actorUserId: user.userId,
     action: "Project updated",
     entityType: "Project",
     entityId: projectId,
-  })
+  });
   return updatedProject;
 };
 const deleteProject = async (projectId: string, user: ReqUser) => {
@@ -334,12 +336,12 @@ const deleteProject = async (projectId: string, user: ReqUser) => {
       isDeleted: true,
     },
   });
-   await logActivity({
+  await logActivity({
     actorUserId: user.userId,
     action: "Project deleted(soft-delete)",
     entityType: "Project",
     entityId: projectId,
-  })
+  });
   return softDelete;
 };
 const deleteMemberFromProject = async (
@@ -354,7 +356,7 @@ const deleteMemberFromProject = async (
     },
     include: {
       managerProfile: true,
-      memberProfile: true
+      memberProfile: true,
     },
   });
 
@@ -365,7 +367,7 @@ const deleteMemberFromProject = async (
     where: {
       id: projectId,
       managerId: existingUser.managerProfile?.id,
-    }
+    },
   });
   if (!project) {
     throw new AppError(httpStatus.NOT_FOUND, "No project found");
@@ -378,12 +380,12 @@ const deleteMemberFromProject = async (
       },
     },
   });
-   await logActivity({
+  await logActivity({
     actorUserId: user.userId,
     action: "Member deleted from Project",
     entityType: "Project",
     entityId: memberId,
-  })
+  });
   return deleteMember;
 };
 const createTask = async (
@@ -434,13 +436,11 @@ const createTask = async (
   if (!manager) {
     throw new AppError(httpStatus.NOT_FOUND, "Manager not found");
   }
-  if (
-    manager.subscription?.status !== "ACTIVE" &&
-    manager.subscription?.plan !== "PRO"
-  ) {
+  const hasActiveSubscription = isSubscriptionActive(manager.subscription);
+  if (!hasActiveSubscription) {
     throw new AppError(
       httpStatus.BAD_REQUEST,
-      "Your current subscription plan is not Active or your subscription plan is not pro yet sp  kindly purchase subscription then try to create task",
+      "Your current subscription is not active or has expired. Please purchase a valid subscription to create projects.",
     );
   }
   const createTask = await prisma.task.create({
@@ -583,7 +583,7 @@ export const projectService = {
   deleteProject,
   deleteMemberFromProject,
   createTask,
-  getTask
+  getTask,
 };
 
 // TODO

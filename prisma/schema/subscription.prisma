@@ -1,15 +1,27 @@
 model Subscription {
-  id        String             @id @default(uuid())
-  managerId String             @unique
-  plan      SubscriptionPlan   @default(FREE)
-  status    SubscriptionStatus @default(PAST_DUE) // starts unpaid until first successful payment
-  startDate DateTime?
-  endDate   DateTime?
-  createdAt DateTime           @default(now())
-  updatedAt DateTime           @updatedAt
+  id String @id @default(uuid())
+
+  managerId String @unique
+  planId    String
+
+  status SubscriptionStatus @default(ACTIVE)
+
+  startDate DateTime
+  endDate   DateTime
+
+  cancelAtPeriodEnd Boolean   @default(false)
+  canceledAt        DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   manager  Manager   @relation(fields: [managerId], references: [id])
+  plan     Plan      @relation(fields: [planId], references: [id])
   payments Payment[]
 
+  @@index([managerId])
+  @@index([planId])
+  @@index([status])
+  @@index([endDate])
   @@map("subscriptions")
 }

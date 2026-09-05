@@ -1,19 +1,31 @@
 model Payment {
-  id             String        @id @default(uuid())
-  managerId      String
-  subscriptionId String?
-  amount         Decimal       @db.Decimal(10, 2)
-  currency       String        @default("BDT")
-  status         PaymentStatus @default(PENDING)
-  bkashTrxId     String?       @unique
-  bkashPaymentId String?       @unique
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
+  id                    String        @id @default(uuid())
+  managerId             String
+  subscriptionId        String?
+  amount                Decimal       @db.Decimal(10, 2)
+  currency              String        @default("BDT")
+  status                PaymentStatus @default(PENDING)
+  provider              String        @default("Bkash")
+  transactionId         String?       @unique
+  paidAt                DateTime?
+  merchantInvoiceNumber String        @unique
+  bkashPaymentId        String?       @unique
+  bkashTrxId            String?
+  payerReference        String?
+  gatewayResponse       Json?
+  refundTrxId           String?
+  refundAmount          Decimal?      @db.Decimal(10, 2)
+  refundReason          String?
+  refundedAt            String?
+  createdAt             DateTime      @default(now())
+  updatedAt             DateTime      @updatedAt
 
   manager      Manager       @relation(fields: [managerId], references: [id])
   subscription Subscription? @relation(fields: [subscriptionId], references: [id])
 
   @@index([managerId])
+  @@index([subscriptionId])
   @@index([status])
+  @@index([provider])
   @@map("payments")
 }
