@@ -9,5 +9,5 @@ const router = Router();
 
 router.post("/createPayment", auth(Role.MANAGER, Role.ADMIN), validateRequest(CreatePaymentPayloadSchema), paymentController.createPayment)
 router.get("/callback", paymentController.paymentCallback)
-
+router.get("/getMyPayment", auth(Role.MANAGER, Role.ADMIN), paymentController.getMyPayment)
 export const paymentRoutes = router;

@@ -20,10 +20,21 @@ const paymentCallback = catchAsync(async (req:Request, res: Response) => {
   console.log(req.query)
   const {redirectUrl} = await paymentService.createdPaymentCallBack(req.query)
   res.redirect(redirectUrl)
-})
-;
+});
+
+const getMyPayment = catchAsync(async (req: Request, res: Response) => {
+  const user = req.user!;
+  const result = await paymentService.getMyPayment(user);
+  sendResponse(res, {
+    statusCode: httpStatus.OK,
+    success: true,
+    message: "Payment data fetched successfully",
+    data: result,
+  });
+});
 
 export const paymentController = {
     createPayment,
-    paymentCallback
+    paymentCallback,
+    getMyPayment
 }

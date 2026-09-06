@@ -5,6 +5,7 @@ import { prisma } from "../../lib/prisma";
 import { addMonths } from "date-fns";
 import { getBkashIdToken } from "../../lib/bkash";
 import { config } from "../../config";
+import { IQuery } from "../../interface";
 
 const createPayment = async (user: ReqUser, payload: any) => {
   const { planId } = payload;
@@ -356,12 +357,88 @@ const createdPaymentCallBack = async (query: Record<string, any>) => {
 
   return transactionResult;
 };
-const getMyPayment = async () => {};
-const getAllPayments = async () => {};
-const singlePayment = async () => {};
+const getMyPayment = async (user: ReqUser) => {
+  const existingUser = await prisma.user.findUnique({
+    where: {
+      id: user.userId,
+      role: user.role,
+    },
+    include: {
+      managerProfile: true,
+    },
+  });
+
+  if (!existingUser) {
+    throw new AppError(httpStatus.NOT_FOUND, "User not found");
+  }
+
+  if (existingUser.role !== "MANAGER") {
+    throw new AppError(
+      httpStatus.FORBIDDEN,
+      "Only manager can create a subscription",
+    );
+  }
+
+  if (existingUser.isDeleted || existingUser.status === "DELETED") {
+    throw new AppError(
+      httpStatus.FORBIDDEN,
+      "Your account is deleted, please contact an admin",
+    );
+  }
+
+  if (existingUser.status === "BLOCKED") {
+    throw new AppError(
+      httpStatus.FORBIDDEN,
+      "Your account is blocked, please contact an admin",
+    );
+  }
+
+  if (!existingUser.managerProfile) {
+    throw new AppError(httpStatus.NOT_FOUND, "Manager profile not found");
+  }
+
+  const manager = await prisma.manager.findUnique({
+    where: {
+      id: existingUser.managerProfile.id,
+    },
+  });
+
+  if (!manager) {
+    throw new AppError(httpStatus.NOT_FOUND, "Manager not found");
+  }
+
+  const payment = await prisma.payment.findMany({
+    where: {
+      managerId: manager.id,
+    },
+    include: {
+      manager: {
+        select: {
+          email: true,
+          name: true,
+        },
+      },
+      subscription: {
+        select: {
+          status: true,
+          startDate: true,
+          endDate: true,
+        },
+      },
+    },
+    omit:{
+      gatewayResponse: true
+    }
+  });
+
+  return payment;
+};
+
 
 export const paymentService = {
   createPayment,
   createdPaymentCallBack,
+  getMyPayment,
+
 };
 // TODO
