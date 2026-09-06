@@ -236,10 +236,24 @@ const assignTaskToMember = async (
         memberId: member.id,
       },
     });
-    return tx.task.update({
+    await tx.taskAssignment.upsert({
+      where: {
+        taskId_memberId: {
+          taskId: taskId,
+          memberId: member.id,
+        },
+      },
+      update: {},
+      create: {
+        taskId: taskId,
+        memberId: member.id,
+      },
+    });
+   return tx.task.update({
       where: { id: taskId },
       data: {
-        assigneeId: member.id,
+        assigneeId: member.id, 
+        assignmentNotifiedAt: new Date(),
       },
     });
   });

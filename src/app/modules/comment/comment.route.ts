@@ -7,17 +7,7 @@ import { commentController } from "./comment.controller";
 
 const router = Router();
 
-router.post(
-  "/:taskId/comment",
-  validateRequest(CommentPayloadSchema),
-  auth(Role.MEMBER),
-  commentController.addComment,
-);
-router.get(
-  "/:taskId/comments",
-  auth(Role.MEMBER, Role.MANAGER),
-  commentController.getComments,
-);
+
 router.delete("/:id", auth(Role.MEMBER), commentController.deleteComment);
 
 export const commentRoute = router;

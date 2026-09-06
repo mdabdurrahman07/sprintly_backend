@@ -1,0 +1,9 @@
+model TaskAssignment {
+  taskId   String
+  memberId String
+  task     Task   @relation(fields: [taskId], references: [id])
+  member   Member @relation(fields: [memberId], references: [id])
+
+  @@id([taskId, memberId])
+  @@map("taskAssignments")
+}
