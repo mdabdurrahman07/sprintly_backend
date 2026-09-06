@@ -8,5 +8,6 @@ import { paymentController } from "./payment.controller";
 const router = Router();
 
 router.post("/createPayment", auth(Role.MANAGER, Role.ADMIN), validateRequest(CreatePaymentPayloadSchema), paymentController.createPayment)
+router.get("/callback", paymentController.paymentCallback)
 
 export const paymentRoutes = router;

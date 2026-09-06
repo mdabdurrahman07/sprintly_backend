@@ -2,7 +2,7 @@ import httpStatus from "http-status";
 import { ReqUser } from "../../middleware/checkAuth";
 import { AppError } from "../../utils/AppError";
 import { prisma } from "../../lib/prisma";
-import { addMonths, isAfter, isBefore } from "date-fns";
+import { addMonths } from "date-fns";
 import { getBkashIdToken } from "../../lib/bkash";
 import { config } from "../../config";
 
@@ -148,7 +148,7 @@ const createPayment = async (user: ReqUser, payload: any) => {
 
         payerReference: existingUser.email,
 
-        callbackURL: `${config.bkash_callback_url}/subscription/payment/callback`,
+        callbackURL: `${config.bkash_callback_url}/payment/callback`,
         amount: plan.price.toString(),
 
         currency: plan.currency,
@@ -217,167 +217,151 @@ const createPayment = async (user: ReqUser, payload: any) => {
   };
 };
 const createdPaymentCallBack = async (query: Record<string, any>) => {
-  const paymentId = query.paymentID;
-  if (!paymentId) {
-    throw new AppError(httpStatus.BAD_REQUEST, "Payment Id Missing");
-  }
-  const status = query.status as string;
-  if (!status) {
-    throw new AppError(httpStatus.BAD_REQUEST, "Payment Status Missing");
-  }
-  const bkashIdToken = await getBkashIdToken();
+  console.log("=== CALLBACK HIT ===", JSON.stringify(query, null, 2));
 
-  if (!bkashIdToken) {
-    throw new AppError(httpStatus.BAD_GATEWAY, "No Bkash access token found");
-  }
+  const failureRedirect = `${config.frontend_url}/dashboard/my-payment?status=failure`;
+  const cancelRedirect = `${config.frontend_url}/dashboard/my-payment?status=cancel`;
+  const successRedirect = `${config.frontend_url}/dashboard/my-payment?status=success`;
 
-  const getBkashHeaders = () => ({
-    "Content-Type": "application/json",
-    Accept: "application/json",
-    Authorization: bkashIdToken,
-    "X-App-Key": config.bkash_app_key,
-  });
+  const transactionResult = await prisma.$transaction(
+    async (tx) => {
+      const paymentId = query.paymentID as string | undefined;
+      const status = query.status as string | undefined;
 
-  if (status === "cancel") {
-    const existingPayment = await prisma.payment.findFirst({
-      where: { bkashPaymentId: paymentId },
-    });
+      if (!paymentId) {
+        throw new AppError(httpStatus.BAD_REQUEST, "Payment ID missing");
+      }
 
-    if (!existingPayment) {
-      throw new AppError(httpStatus.NOT_FOUND, "Payment record not found");
-    }
+      if (!status) {
+        throw new AppError(httpStatus.BAD_REQUEST, "Payment status missing");
+      }
 
-    await prisma.payment.update({
-      where: { id: existingPayment.id },
-      data: { status: "CANCELLED" },
-    });
+      const bkashIdToken = await getBkashIdToken();
 
-    return {
-      redirectUrl: `${config.frontend_url}/dashboard/my-payment?status=cancel`,
-    };
-  }
-  if (status === "failure") {
-    const existingPayment = await prisma.payment.findFirst({
-      where: { bkashPaymentId: paymentId },
-    });
+      if (!bkashIdToken) {
+        throw new AppError(
+          httpStatus.BAD_GATEWAY,
+          "No Bkash access token found",
+        );
+      }
 
-    if (!existingPayment) {
-      throw new AppError(httpStatus.NOT_FOUND, "Payment record not found");
-    }
+      const bkashHeaders = {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+        Authorization: bkashIdToken,
+        "X-App-Key": config.bkash_app_key,
+      };
+      const executeResponse = await fetch(
+        `${config.bkash_sandbox_base_url}/tokenized/checkout/execute`,
+        {
+          method: "POST",
+          headers: bkashHeaders,
+          body: JSON.stringify({ paymentID: paymentId }),
+        },
+      );
 
-    await prisma.payment.update({
-      where: { id: existingPayment.id },
-      data: { status: "FAILED" },
-    });
+      const executeResult = await executeResponse.json();
+      console.log(
+        "=== EXECUTE RESULT ===",
+        JSON.stringify(executeResult, null, 2),
+      );
 
-    return {
-      redirectUrl: `${config.frontend_url}/dashboard/my-payment?status=failure`,
-    };
-  }
-  if (status !== "success") {
-    throw new AppError(
-      httpStatus.BAD_REQUEST,
-      `Unknown payment status: ${status}`,
-    );
-  }
+      if (status === "success") {
+        const payment = await tx.payment.findFirst({
+          where: { bkashPaymentId: paymentId },
+        });
 
-  const executeResponse = await fetch(
-    `${config.bkash_sandbox_base_url}/tokenized/checkout/execute`,
+        if (!payment) {
+          throw new AppError(httpStatus.NOT_FOUND, "Payment record not found");
+        }
+
+        if (!payment.planId) {
+          throw new AppError(
+            httpStatus.INTERNAL_SERVER_ERROR,
+            "Payment has no associated plan",
+          );
+        }
+
+        const startDate = new Date();
+        const endDate = addMonths(startDate, 1);
+
+        // Update payment to SUCCESS
+        await tx.payment.update({
+          where: { id: payment.id },
+          data: {
+            status: "SUCCESS",
+            transactionId: executeResult.trxID,
+            bkashTrxId: executeResult.trxID,
+            paidAt: new Date(),
+            gatewayResponse: executeResult,
+          },
+        });
+
+        // Upsert subscription
+        const subscription = await tx.subscription.upsert({
+          where: { managerId: payment.managerId },
+          create: {
+            managerId: payment.managerId,
+            planId: payment.planId,
+            status: "ACTIVE",
+            startDate,
+            endDate,
+          },
+          update: {
+            planId: payment.planId,
+            status: "ACTIVE",
+            startDate,
+            endDate,
+            cancelAtPeriodEnd: false,
+            canceledAt: null,
+          },
+        });
+
+        // Link payment to subscription
+        await tx.payment.update({
+          where: { id: payment.id },
+          data: { subscriptionId: subscription.id },
+        });
+
+        return { redirectUrl: successRedirect };
+      } else if (status === "failure") {
+        await tx.payment.updateMany({
+          where: { bkashPaymentId: paymentId },
+          data: {
+            status: "FAILED",
+            gatewayResponse: executeResult,
+          },
+        });
+
+        return { redirectUrl: failureRedirect };
+      } else if (status === "cancel") {
+        await tx.payment.updateMany({
+          where: { bkashPaymentId: paymentId },
+          data: {
+            status: "CANCELLED",
+            gatewayResponse: executeResult,
+          },
+        });
+
+        return { redirectUrl: cancelRedirect };
+      } else {
+        return { redirectUrl: failureRedirect };
+      }
+    },
     {
-      method: "POST",
-      headers: getBkashHeaders(),
-      body: JSON.stringify({
-        paymentID: paymentId,
-      }),
+      maxWait: 10000, // wait up to 10s to acquire a connection
+      timeout: 30000, // allow up to 30s for the transaction (covers bkash network latency)
     },
   );
-  const executeResult = await executeResponse.json();
-  if (!executeResponse.ok || executeResult.statusCode !== "0000") {
-    // Mark the payment as failed if bkash execute itself fails
-    const existingPayment = await prisma.payment.findFirst({
-      where: { bkashPaymentId: paymentId },
-    });
 
-    if (existingPayment) {
-      await prisma.payment.update({
-        where: { id: existingPayment.id },
-        data: {
-          status: "FAILED",
-          gatewayResponse: executeResult,
-        },
-      });
-    }
-
-    throw new AppError(
-      httpStatus.BAD_GATEWAY,
-      executeResult?.statusMessage || "Bkash payment execution failed",
-    );
-  }
-
-  const transactionResult = await prisma.$transaction(async (tx) => {
-    const payment = await tx.payment.findFirst({
-      where: {
-        bkashPaymentId: paymentId,
-      },
-    });
-    if (!payment) {
-      throw new AppError(httpStatus.NOT_FOUND, "Payment record not found");
-    }
-    const manager = await tx.manager.findUnique({
-      where: { id: payment.managerId },
-    });
-
-    if (!manager) {
-      throw new AppError(httpStatus.NOT_FOUND, "Manager not found");
-    }
-    const updatedPayment = await tx.payment.update({
-      where: { id: payment.id },
-      data: {
-        status: "SUCCESS",
-        transactionId: executeResult.trxID,
-        bkashTrxId: executeResult.trxID,
-        paidAt: new Date(),
-        gatewayResponse: executeResult,
-      },
-    });
-    const startDate = new Date();
-    const endDate = addMonths(startDate, 1);
-    const subscription = await tx.subscription.upsert({
-      where: { managerId: payment.managerId },
-      create: {
-        managerId: payment.managerId,
-        planId: payment.planId!, // fallback — see note below
-        status: "ACTIVE",
-        startDate,
-        endDate,
-      },
-      update: {
-        status: "ACTIVE",
-        startDate,
-        endDate,
-        cancelAtPeriodEnd: false,
-        canceledAt: null,
-      },
-    });
-      await tx.payment.update({
-      where: { id: updatedPayment.id },
-      data: { subscriptionId: subscription.id },
-    });
-    return { payment: updatedPayment, subscription };
-  });
-  return {
-    transactionResult,
-    redirectUrl: `${config.frontend_url}/dashboard/my-payment?status=success`,
-  };
+  return transactionResult;
 };
-const getMyPayment = async () => {}
-const getAllPayments = async () => {}
-const singlePayment = async () => {}
-
+const getMyPayment = async () => {};
+const getAllPayments = async () => {};
+const singlePayment = async () => {};
 
 export const paymentService = {
   createPayment,
-  createdPaymentCallBack
+  createdPaymentCallBack,
 };
 // TODO
-// * Refund

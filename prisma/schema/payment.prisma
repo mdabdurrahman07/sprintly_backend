@@ -29,5 +29,6 @@ model Payment {
   @@index([subscriptionId])
   @@index([status])
   @@index([provider])
+  @@index([planId])
   @@map("payments")
 }
