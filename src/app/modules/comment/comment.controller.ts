@@ -35,7 +35,7 @@ const deleteComment = catchAsync(async (req: Request, res: Response) => {
     statusCode: httpStatus.OK,
     success: true,
     message: "Comment deleted successfully",
-    data: result,
+    data: {}
   });
 });
 

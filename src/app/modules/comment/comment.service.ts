@@ -114,14 +114,58 @@ const getComments = async (taskId: string) => {
   return taskComment;
 };
 const deleteComment = async (commentId: string, user: ReqUser) => {
-  if (commentId) {
+  if (!commentId) {
     throw new AppError(httpStatus.NOT_FOUND, "Invalid Comment Id");
+  }
+   const existingUser = await prisma.user.findUnique({
+    where: {
+      id: user.userId,
+      role: user.role,
+    },
+    include: {
+      memberProfile: {
+        select: {
+          id: true,
+          email: true,
+        },
+      },
+    },
+  });
+
+  if (!existingUser) {
+    throw new AppError(httpStatus.NOT_FOUND, "User not found");
+  }
+
+  if (existingUser.role !== "MEMBER") {
+    throw new AppError(httpStatus.FORBIDDEN, "Only members can add comments");
+  }
+
+  if (existingUser.isDeleted || existingUser.status === "DELETED") {
+    throw new AppError(
+      httpStatus.FORBIDDEN,
+      "Your account is deleted, please contact an admin",
+    );
+  }
+
+  if (existingUser.status === "BLOCKED") {
+    throw new AppError(
+      httpStatus.FORBIDDEN,
+      "Your account is blocked, please contact an admin",
+    );
+  }
+
+  const member = await prisma.member.findUnique({
+    where: { id: existingUser.memberProfile?.id },
+  });
+
+  if (!member) {
+    throw new AppError(httpStatus.NOT_FOUND, "Member not found");
   }
 
   const deleteComment = await prisma.comment.delete({
     where: {
       id: commentId,
-      memberId: user.userId,
+      memberId: member.id
     },
   });
   return deleteComment;
