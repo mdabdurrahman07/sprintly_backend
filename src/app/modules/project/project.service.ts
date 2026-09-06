@@ -261,7 +261,7 @@ const updateProject = async (
   }
 
   if (existingUser.role !== "MANAGER") {
-    throw new AppError(httpStatus.FORBIDDEN, "Only manager can update project");
+    throw new AppError(httpStatus.FORBIDDEN, "Only manager can create project");
   }
 
   if (existingUser.isDeleted || existingUser.status === "DELETED") {
@@ -446,7 +446,12 @@ const createTask = async (
   const createTask = await prisma.task.create({
     data: {
       projectId,
-      ...payload,
+      title: payload.title,
+      description: payload.description,
+      status: payload.status,
+      priority: payload.priority,
+      labels: payload.labels,
+      assigneeId: payload.assigneeId,
     },
     include: {
       project: {
@@ -585,6 +590,3 @@ export const projectService = {
   createTask,
   getTask,
 };
-
-// TODO
-// * select only id and email of existingUser

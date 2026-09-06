@@ -218,7 +218,6 @@ const createPayment = async (user: ReqUser, payload: any) => {
   };
 };
 const createdPaymentCallBack = async (query: Record<string, any>) => {
-  console.log("=== CALLBACK HIT ===", JSON.stringify(query, null, 2));
 
   const failureRedirect = `${config.frontend_url}/dashboard/my-payment?status=failure`;
   const cancelRedirect = `${config.frontend_url}/dashboard/my-payment?status=cancel`;
@@ -262,10 +261,6 @@ const createdPaymentCallBack = async (query: Record<string, any>) => {
       );
 
       const executeResult = await executeResponse.json();
-      console.log(
-        "=== EXECUTE RESULT ===",
-        JSON.stringify(executeResult, null, 2),
-      );
 
       if (status === "success") {
         const payment = await tx.payment.findFirst({

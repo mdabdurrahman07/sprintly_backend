@@ -17,3 +17,7 @@ export interface IUpdateTaskInput {
   labels?: string[];
   assigneeId?: string | null;
 }
+
+export interface IAssignTaskToMember {
+  memberEmail: string
+}

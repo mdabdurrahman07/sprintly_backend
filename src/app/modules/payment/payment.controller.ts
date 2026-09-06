@@ -17,7 +17,6 @@ const createPayment = catchAsync(async (req: Request, res: Response) => {
 });
 
 const paymentCallback = catchAsync(async (req:Request, res: Response) => {
-  console.log(req.query)
   const {redirectUrl} = await paymentService.createdPaymentCallBack(req.query)
   res.redirect(redirectUrl)
 });

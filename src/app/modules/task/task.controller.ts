@@ -40,8 +40,8 @@ const updateTask = catchAsync(async (req: Request, res: Response) => {
 });
 const assignTaskToMember = catchAsync(async (req: Request, res: Response) => {
   const taskId = req.params.id as string;
-  const memberId = req.body;
-  const result = await taskServices.assignTaskToMember(taskId, memberId);
+  const payload = req.body;
+  const result = await taskServices.assignTaskToMember(taskId, payload);
   sendResponse(res, {
     statusCode: httpStatus.OK,
     success: true,

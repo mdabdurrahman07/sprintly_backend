@@ -5,6 +5,6 @@ export const ProjectPayloadSchema = z.object({
   description: z.string().optional(),
 });
 export const ProjectUpdatePayloadSchema = z.object({
-  name: z.string().min(1, "Name is required"),
+  name: z.string().min(1, "Name is required").optional(),
   description: z.string().optional(),
 });

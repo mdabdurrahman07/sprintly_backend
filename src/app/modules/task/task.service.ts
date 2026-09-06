@@ -2,16 +2,16 @@ import httpStatus from "http-status";
 import { prisma } from "../../lib/prisma";
 import { ReqUser } from "../../middleware/checkAuth";
 import { AppError } from "../../utils/AppError";
-import { ICreateTaskInput, IUpdateTaskInput } from "./task.interface";
-import { IQuery } from "../../interface";
-import { TaskWhereInput } from "../../../../generated/prisma/models";
+import {
+  IAssignTaskToMember,
+  IUpdateTaskInput,
+} from "./task.interface";
 import { logActivity } from "../../utils/logActivity";
 import { TaskStatus } from "../../../../generated/prisma/enums";
 import path from "node:path";
 import ejs from "ejs";
 import { transporter } from "../../lib/nodemailer";
 import { config } from "../../config";
-
 
 const getMyAssignedTask = async (user: ReqUser) => {
   const existingUser = await prisma.user.findUnique({
@@ -160,7 +160,14 @@ const updateTask = async (
     where: {
       id: taskId,
     },
-    data: payload,
+    data: {
+      title: payload.title,
+      description: payload.description,
+      status: payload.status,
+      priority: payload.priority,
+      labels: payload.labels,
+      assigneeId: payload.assigneeId,
+    }
   });
   await logActivity({
     actorUserId: user.userId,
@@ -172,9 +179,9 @@ const updateTask = async (
 };
 const assignTaskToMember = async (
   taskId: string,
-  memberId: string,
+  payload: IAssignTaskToMember,
 ) => {
-  if (!taskId || !memberId) {
+  if (!taskId || !payload.memberEmail) {
     throw new AppError(
       httpStatus.BAD_REQUEST,
       "TaskId and MemberId are required",
@@ -203,7 +210,12 @@ const assignTaskToMember = async (
   }
 
   const member = await prisma.member.findUnique({
-    where: { id: memberId },
+    where: {
+      email: payload.memberEmail,
+    },
+    include: {
+      projectMemberships: true,
+    },
   });
 
   if (!member) {
@@ -215,19 +227,19 @@ const assignTaskToMember = async (
       where: {
         projectId_memberId: {
           projectId: task.projectId,
-          memberId: memberId,
+          memberId: member.id,
         },
       },
       update: {},
       create: {
         projectId: task.projectId,
-        memberId: memberId,
+        memberId: member.id,
       },
     });
     return tx.task.update({
       where: { id: taskId },
       data: {
-        assigneeId: memberId,
+        assigneeId: member.id,
       },
     });
   });

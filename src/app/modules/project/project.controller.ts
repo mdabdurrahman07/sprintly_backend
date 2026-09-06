@@ -42,7 +42,7 @@ const updateProject = catchAsync(async (req: Request, res: Response) => {
   const projectId = req.params.id as string
   const payload = req.body
   const user = req.user!
-  const result = await projectService.updateProject(projectId, payload, user);
+  const result = await projectService.updateProject(projectId, user, payload);
   sendResponse(res, {
     statusCode: httpStatus.OK,
     success: true,

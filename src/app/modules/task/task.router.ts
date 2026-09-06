@@ -2,6 +2,8 @@ import { Router } from "express";
 import { Role } from "../../../../generated/prisma/enums";
 import { auth } from "../../middleware/checkAuth";
 import { taskController } from "./task.controller";
+import { validateRequest } from "../../middleware/validateRequest";
+import { updateTaskSchema } from "./task.validation";
 
 const router = Router();
 
@@ -11,11 +13,11 @@ router.get(
   taskController.getMyAssignedTask,
 );
 router.get(
-  "/id",
+  "/:id",
   auth(Role.MANAGER, Role.MEMBER),
   taskController.getTaskDetails,
 );
-router.patch("/id", auth(Role.MANAGER, Role.MEMBER), taskController.updateTask);
-router.put("/id", auth(Role.MANAGER), taskController.updateTask);
+router.patch("/:id", validateRequest(updateTaskSchema), auth(Role.MANAGER, Role.MEMBER), taskController.updateTask);
+router.put("/:id", auth(Role.MANAGER), taskController.assignTaskToMember);
 
 export const taskRoutes = router;

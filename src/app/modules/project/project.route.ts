@@ -29,12 +29,12 @@ router.get(
   projectController.getProjects,
 );
 router.patch(
-  "update/:id",
+  "/update/:id",
   validateRequest(ProjectUpdatePayloadSchema),
   auth(Role.MANAGER),
   projectController.updateProject,
 );
-router.post("del/:id", auth(Role.MANAGER), projectController.deleteProject); // soft-delete
+router.patch("del/:id", auth(Role.MANAGER), projectController.deleteProject); // soft-delete
 router.delete(
   "/del/:id",
   auth(Role.MANAGER),

@@ -11,6 +11,7 @@ import { taskRoutes } from "./app/modules/task/task.router";
 import { commentRoute } from "./app/modules/comment/comment.route";
 import { paymentRoutes } from "./app/modules/payment/payment.route";
 import { planRoutes } from "./app/modules/plan/plan.router";
+import { projectRouter } from "./app/modules/project/project.route";
 const app: Application = express();
 
 app.use(
@@ -27,7 +28,7 @@ app.use(cookieParser());
 // ? Auth Routes
 app.use("/sprintly/api/v1/auth", authRoutes);
 app.use("/sprintly/api/v1/profile", profileRoutes);
-app.use("/sprintly/api/v1/project", profileRoutes);
+app.use("/sprintly/api/v1/project", projectRouter);
 app.use("/sprintly/api/v1/task", taskRoutes);
 app.use("/sprintly/api/v1/comments", commentRoute);
 app.use("/sprintly/api/v1/payment", paymentRoutes);
