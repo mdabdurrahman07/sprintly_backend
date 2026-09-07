@@ -10,6 +10,7 @@ import {
 } from "./project.validation";
 import { createTaskSchema } from "../task/task.validation";
 import { upload } from "../../lib/multer";
+import { strictLimiter } from "../../middleware/strictLimiter";
 
 const router = Router();
 
@@ -23,6 +24,7 @@ router.post(
   ]),
   validateRequest(ProjectPayloadSchema),
   auth(Role.MANAGER),
+  strictLimiter,
   projectController.createProject,
 );
 router.get(
@@ -39,6 +41,7 @@ router.patch(
   "/update/:id",
   validateRequest(ProjectUpdatePayloadSchema),
   auth(Role.MANAGER),
+  strictLimiter,
   projectController.updateProject,
 );
 router.patch("/del/:id", auth(Role.MANAGER), projectController.deleteProject); // soft-delete

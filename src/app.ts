@@ -3,6 +3,7 @@ import cors from "cors";
 import cookieParser from "cookie-parser";
 import { config } from "./app/config";
 import httpStatus from "http-status";
+import helmet from "helmet"
 import { globalErrorHandler } from "./app/middleware/globalErrorHandler";
 import { notFound } from "./app/middleware/notFound";
 import { authRoutes } from "./app/modules/auth/auth.route";
@@ -21,6 +22,11 @@ app.use(
     credentials: true,
   }),
 );
+app.use(helmet({
+    crossOriginResourcePolicy: { policy: "cross-origin" }, 
+    crossOriginOpenerPolicy: { policy: "same-origin" },
+    crossOriginEmbedderPolicy: { policy: "require-corp" }
+}));
 // Enable URL-encoded form data parsing
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());

@@ -5,6 +5,7 @@ import { upload } from "../../lib/multer";
 import { profileController } from "./profile.controller";
 import { validateRequest } from "../../middleware/validateRequest";
 import { ManagerProfileUpdateSchema, MemberProfileUpdateSchema } from "./profile.validation";
+import { strictLimiter } from "../../middleware/strictLimiter";
 
 const router = Router();
 
@@ -13,6 +14,7 @@ router.patch(
     validateRequest(MemberProfileUpdateSchema),
 	auth(Role.MEMBER),
 	upload.single("memberAvatarUrl"),
+	strictLimiter,
 	profileController.updateMemberProfile,
 );
 router.patch(
@@ -20,6 +22,7 @@ router.patch(
     validateRequest(ManagerProfileUpdateSchema),
 	auth(Role.MANAGER),
 	upload.single("managerAvatarUrl"),
+	strictLimiter,
 	profileController.updateManagerProfile,
 );
 
