@@ -6,6 +6,7 @@ import { addMonths } from "date-fns";
 import { getBkashIdToken } from "../../lib/bkash";
 import { config } from "../../config";
 import { IQuery } from "../../interface";
+import { logActivity } from "../../utils/logActivity";
 
 const createPayment = async (user: ReqUser, payload: any) => {
   const { planId } = payload;
@@ -197,6 +198,13 @@ const createPayment = async (user: ReqUser, payload: any) => {
     });
   });
 
+  await logActivity({
+    actorUserId: user.userId,
+    action: "Payment created",
+    entityType: "Payment",
+    entityId: payment.id,
+  });
+
   return {
     // paymentId: updatedPayment.id,
 
@@ -349,6 +357,20 @@ const createdPaymentCallBack = async (query: Record<string, any>) => {
       timeout: 30000, // allow up to 30s for the transaction (covers bkash network latency)
     },
   );
+
+  const callbackPayment = await prisma.payment.findFirst({
+    where: { bkashPaymentId: query.paymentID as string | undefined },
+    include: { manager: { select: { userId: true } } },
+  });
+
+  if (callbackPayment && ["success", "failure", "cancel"].includes(query.status)) {
+    await logActivity({
+      actorUserId: callbackPayment.manager.userId,
+      action: `Payment ${query.status}`,
+      entityType: "Payment",
+      entityId: callbackPayment.id,
+    });
+  }
 
   return transactionResult;
 };

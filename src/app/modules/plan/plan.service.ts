@@ -3,6 +3,7 @@ import { prisma } from "../../lib/prisma";
 import { ReqUser } from "../../middleware/checkAuth";
 import { AppError } from "../../utils/AppError";
 import { ICreatePlanPayload, IUpdatePlanPayload } from "./plan.interface";
+import { logActivity } from "../../utils/logActivity";
 
 const createPlan = async (user: ReqUser, payload: ICreatePlanPayload) => {
   const { name, price } = payload;
@@ -26,6 +27,12 @@ const createPlan = async (user: ReqUser, payload: ICreatePlanPayload) => {
       name,
       price,
     },
+  });
+  await logActivity({
+    actorUserId: user.userId,
+    action: "Plan created",
+    entityType: "Plan",
+    entityId: createdPlan.id,
   });
   return createdPlan;
 };
@@ -66,6 +73,12 @@ const updatePlan = async (
       price,
     },
   });
+  await logActivity({
+    actorUserId: user.userId,
+    action: "Plan updated",
+    entityType: "Plan",
+    entityId: plan.id,
+  });
   return plan;
 };
 const deletePlan = async (user: ReqUser, planId: string) => {
@@ -87,10 +100,16 @@ const deletePlan = async (user: ReqUser, planId: string) => {
   if (!planId) {
     throw new AppError(httpStatus.NOT_FOUND, "TaskId not found");
   }
-  await prisma.plan.delete({
+  const deletedPlan = await prisma.plan.delete({
     where: {
       id: planId,
     },
+  });
+  await logActivity({
+    actorUserId: user.userId,
+    action: "Plan deleted",
+    entityType: "Plan",
+    entityId: deletedPlan.id,
   });
 };
 

@@ -3,6 +3,7 @@ import { prisma } from "../../lib/prisma";
 import { ReqUser } from "../../middleware/checkAuth";
 import { AppError } from "../../utils/AppError";
 import { ICommentPayload } from "./comment.interface";
+import { logActivity } from "../../utils/logActivity";
 
 const addComment = async (
   payload: ICommentPayload,
@@ -95,6 +96,13 @@ const addComment = async (
     },
   });
 
+  await logActivity({
+    actorUserId: user.userId,
+    action: "Comment created",
+    entityType: "Comment",
+    entityId: comment.id,
+  });
+
   return comment;
 };
 const getComments = async (taskId: string) => {
@@ -167,6 +175,12 @@ const deleteComment = async (commentId: string, user: ReqUser) => {
       id: commentId,
       memberId: member.id
     },
+  });
+  await logActivity({
+    actorUserId: user.userId,
+    action: "Comment deleted",
+    entityType: "Comment",
+    entityId: deleteComment.id,
   });
   return deleteComment;
 };

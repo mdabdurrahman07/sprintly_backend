@@ -4,6 +4,7 @@ import { deleteFromCloudinary, uploadOnCloudinary } from "../../lib/cloudinary";
 import httpStatus from "http-status";
 import { AppError } from "../../utils/AppError";
 import { IManagerProfileUpdate, IMemberProfileUpdate } from "./profile.interface";
+import { logActivity } from "../../utils/logActivity";
 
 
 const updateMemberProfile = async (
@@ -37,7 +38,7 @@ const updateMemberProfile = async (
         })
         : undefined
 
-    const updatedData = prisma.member.update({
+    const updatedData = await prisma.member.update({
         where: { userId: existingUser.id},
         data: {
             ...payload,
@@ -46,6 +47,13 @@ const updateMemberProfile = async (
                 memberProfileImagePublicId: imageData.public_id
             })
         },
+    });
+
+    await logActivity({
+        actorUserId: user.userId,
+        action: "Member profile updated",
+        entityType: "Member",
+        entityId: updatedData.id,
     });
 
     return updatedData
@@ -81,7 +89,7 @@ const updateManagerProfile = async (
         })
         : undefined
 
-    const updatedData = prisma.manager.update({
+    const updatedData = await prisma.manager.update({
         where: { userId: existingUser.id},
         data: {
             ...payload,
@@ -90,6 +98,13 @@ const updateManagerProfile = async (
                 managerProfileImagePublicId: imageData.public_id
             })
         },
+    });
+
+    await logActivity({
+        actorUserId: user.userId,
+        action: "Manager profile updated",
+        entityType: "Manager",
+        entityId: updatedData.id,
     });
 
     return updatedData
