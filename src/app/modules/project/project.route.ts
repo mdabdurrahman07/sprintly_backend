@@ -9,12 +9,19 @@ import {
   ProjectUpdatePayloadSchema,
 } from "./project.validation";
 import { createTaskSchema } from "../task/task.validation";
+import { upload } from "../../lib/multer";
 
 const router = Router();
 
 router.post(
   "/create",
   validateRequest(ProjectPayloadSchema),
+  upload.fields([
+    {
+      name: "additionalFiles",
+      maxCount: 3
+    }
+  ]),
   auth(Role.MANAGER),
   projectController.createProject,
 );

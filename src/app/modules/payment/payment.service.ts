@@ -5,7 +5,6 @@ import { prisma } from "../../lib/prisma";
 import { addMonths } from "date-fns";
 import { getBkashIdToken } from "../../lib/bkash";
 import { config } from "../../config";
-import { IQuery } from "../../interface";
 import { logActivity } from "../../utils/logActivity";
 import PDFDocument from "pdfkit";
 import { transporter } from "../../lib/nodemailer";

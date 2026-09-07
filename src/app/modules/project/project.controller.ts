@@ -5,9 +5,11 @@ import { sendResponse } from "../../utils/sendResponse";
 import { projectService } from "./project.service";
 
 const createProject = catchAsync(async (req: Request, res: Response) => {
+  const files = req.files as { [fieldname: string]: Express.Multer.File[] };
+	const additionalFiles = files?.["additionalFiles"] || [];
   const payload = req.body
   const user = req.user!
-  const result = await projectService.createProject(payload, user);
+  const result = await projectService.createProject(payload, user, additionalFiles);
   sendResponse(res, {
     statusCode: httpStatus.CREATED,
     success: true,

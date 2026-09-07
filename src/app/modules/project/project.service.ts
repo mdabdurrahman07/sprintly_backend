@@ -11,8 +11,13 @@ import {
 import { logActivity } from "../../utils/logActivity";
 import { ICreateTaskInput } from "../task/task.interface";
 import { isSubscriptionActive } from "../../utils/helper";
+import { uploadDocumentsOnCloudinary } from "../../lib/cloudinary";
 
-const createProject = async (payload: IProjectPayload, user: ReqUser) => {
+const createProject = async (
+  payload: IProjectPayload,
+  user: ReqUser,
+  additionalFiles: Express.Multer.File[],
+) => {
   const { name, description } = payload;
   const existingUser = await prisma.user.findUnique({
     where: {
@@ -64,11 +69,18 @@ const createProject = async (payload: IProjectPayload, user: ReqUser) => {
       "Your current subscription is not active or has expired. Please purchase a valid subscription to create projects.",
     );
   }
+  const additionalFileResult = additionalFiles.length
+    ? await uploadDocumentsOnCloudinary(additionalFiles)
+    : [];
   const createdProject = await prisma.project.create({
     data: {
       name,
       description,
       managerId: manager.id,
+      additionalFiles: additionalFileResult.map((file) => ({
+        url: file.url,
+        publicId: file.publicId,
+      })),
     },
     include: {
       manager: true,

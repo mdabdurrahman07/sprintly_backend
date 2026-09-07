@@ -5,7 +5,7 @@ cloudinary.config({
   api_key: config.cloudinary_api_key,
   api_secret: config.cloudinary_api_secret,
 });
-export type CloudinaryFolder = "SprintlyUserprofileImages" | "SprintlyManagerprofileImages";
+export type CloudinaryFolder = "SprintlyUserprofileImages" | "SprintlyManagerprofileImages" | "ProjectAdditionalFiles";
 export type CloudinaryResourceType = "auto" | "image" | "video" | "raw";
 
 interface UploadOptions {
@@ -63,4 +63,30 @@ export const deleteFromCloudinary = async (
 		resource_type: resourceType,
 		invalidate: true,
 	});
+};
+export const uploadDocumentOnCloudinary = async (file: Express.Multer.File) => {
+	const isPdf = file.mimetype === "application/pdf";
+
+	const result = await uploadOnCloudinary(file.buffer, {
+		folder: "ProjectAdditionalFiles",
+		resource_type: isPdf ? "image" : "raw",
+		use_filename: true,
+		unique_filename: true,
+	});
+
+	return {
+		publicId: result.public_id,
+		url: result.secure_url,
+		resourceType: result.resource_type,
+		format: result.format,
+		originalName: file.originalname,
+		size: file.size,
+		mimeType: file.mimetype,
+	};
+};
+
+export const uploadDocumentsOnCloudinary = async (
+	files: Express.Multer.File[],
+) => {
+	return Promise.all(files.map((file) => uploadDocumentOnCloudinary(file)));
 };

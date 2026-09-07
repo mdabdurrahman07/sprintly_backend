@@ -1,13 +1,14 @@
 model Project {
-  id          String        @id @default(uuid())
-  name        String
-  description String?
-  status      ProjectStatus @default(ACTIVE)
-  managerId   String
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
-  deletedAt   DateTime?
-  isDeleted   Boolean?      @default(false)
+  id              String        @id @default(uuid())
+  name            String
+  description     String?
+  status          ProjectStatus @default(ACTIVE)
+  managerId       String
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  deletedAt       DateTime?
+  isDeleted       Boolean?      @default(false)
+  additionalFiles Json?
 
   manager Manager         @relation(fields: [managerId], references: [id])
   members ProjectMember[]
