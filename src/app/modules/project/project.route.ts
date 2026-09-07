@@ -15,13 +15,13 @@ const router = Router();
 
 router.post(
   "/create",
-  validateRequest(ProjectPayloadSchema),
   upload.fields([
     {
       name: "additionalFiles",
-      maxCount: 3
-    }
+      maxCount: 3,
+    },
   ]),
+  validateRequest(ProjectPayloadSchema),
   auth(Role.MANAGER),
   projectController.createProject,
 );
@@ -41,7 +41,7 @@ router.patch(
   auth(Role.MANAGER),
   projectController.updateProject,
 );
-router.patch("del/:id", auth(Role.MANAGER), projectController.deleteProject); // soft-delete
+router.patch("/del/:id", auth(Role.MANAGER), projectController.deleteProject); // soft-delete
 router.delete(
   "/del/:id",
   auth(Role.MANAGER),

@@ -17,3 +17,5 @@ router.patch(
 router.get("/analytics", auth(Role.ADMIN), adminController.adminTotalAnalytics);
 router.get("/projects", auth(Role.ADMIN), adminController.getAllProjects);
 router.get("/audit", auth(Role.ADMIN), adminController.getAuditLogs);
+
+export const adminRoutes = router;

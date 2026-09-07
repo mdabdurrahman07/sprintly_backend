@@ -226,51 +226,121 @@ const createPayment = async (user: ReqUser, payload: any) => {
     bkash: bkashResponse.bkashURL,
   };
 };
+const sendSubscriptionInvoice = async (invoice: {
+  managerName: string;
+  managerEmail: string;
+  startDate: Date;
+  endDate: Date;
+  status: string;
+  amount: unknown;
+  transactionId: string;
+  paidAt: Date | null;
+}) => {
+  const pdfDocument = new PDFDocument({ margin: 50 });
+  const pdfChunks: Buffer[] = [];
+
+  const pdfBuffer = await new Promise<Buffer>((resolve, reject) => {
+    pdfDocument.on("data", (chunk: Buffer) => pdfChunks.push(chunk));
+    pdfDocument.on("end", () => resolve(Buffer.concat(pdfChunks)));
+    pdfDocument.on("error", reject);
+
+    pdfDocument
+      .fontSize(20)
+      .text("Sprintly Project Management App", { align: "center" });
+    pdfDocument.fontSize(14).text("Subscription Invoice", { align: "center" });
+    pdfDocument.moveDown(2);
+
+    pdfDocument.fontSize(12).text(`Manager Name: ${invoice.managerName}`);
+    pdfDocument.text(`Manager Email: ${invoice.managerEmail}`);
+    pdfDocument.moveDown();
+    pdfDocument.text(`Subscription Start: ${invoice.startDate}`);
+    pdfDocument.text(`Subscription End: ${invoice.endDate}`);
+    pdfDocument.text(`Subscription Status: ${invoice.status}`);
+    pdfDocument.moveDown();
+    pdfDocument.text(`Amount Paid: ${invoice.amount} BDT`);
+    pdfDocument.text("Payment Method: BKash");
+    pdfDocument.text(`Transaction Id: ${invoice.transactionId}`);
+    pdfDocument.text(`Paid At: ${invoice.paidAt}`);
+    pdfDocument.end();
+  });
+
+  await transporter.sendMail({
+    from: config.email_sender,
+    to: invoice.managerEmail,
+    subject: "Your Subscription Invoice - Sprintly Project Management App",
+    text: "Thank you for subscribing, Please find your invoice attached",
+    attachments: [
+      {
+        filename: `${invoice.managerEmail}_invoice.pdf`,
+        content: pdfBuffer,
+      },
+    ],
+  });
+};
+
 const createdPaymentCallBack = async (query: Record<string, any>) => {
   const failureRedirect = `${config.frontend_url}/dashboard/my-payment?status=failure`;
   const cancelRedirect = `${config.frontend_url}/dashboard/my-payment?status=cancel`;
   const successRedirect = `${config.frontend_url}/dashboard/my-payment?status=success`;
 
+  const paymentId = query.paymentID as string | undefined;
+  const status = query.status as string | undefined;
+
+  if (!paymentId) {
+    throw new AppError(httpStatus.BAD_REQUEST, "Payment ID missing");
+  }
+
+  if (!status) {
+    throw new AppError(httpStatus.BAD_REQUEST, "Payment status missing");
+  }
+
+  let executeResult: Record<string, any> | undefined;
+
+  // Only successful callbacks need bKash execution. Failure/cancel callbacks
+  // can update the local payment immediately without another network request.
+  if (status === "success") {
+    const bkashIdToken = await getBkashIdToken();
+
+    if (!bkashIdToken) {
+      throw new AppError(httpStatus.BAD_GATEWAY, "No Bkash access token found");
+    }
+
+    const bkashHeaders = {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+      Authorization: bkashIdToken,
+      "X-App-Key": config.bkash_app_key,
+    };
+    const executeResponse = await fetch(
+      `${config.bkash_sandbox_base_url}/tokenized/checkout/execute`,
+      {
+        method: "POST",
+        headers: bkashHeaders,
+        body: JSON.stringify({ paymentID: paymentId }),
+        signal: AbortSignal.timeout(10000),
+      },
+    );
+
+    executeResult = await executeResponse.json();
+
+    if (!executeResponse.ok) {
+      throw new AppError(
+        httpStatus.BAD_GATEWAY,
+        executeResult?.statusMessage || "Failed to execute Bkash payment",
+      );
+    }
+  }
+
   const transactionResult = await prisma.$transaction(
     async (tx) => {
-      const paymentId = query.paymentID as string | undefined;
-      const status = query.status as string | undefined;
-
-      if (!paymentId) {
-        throw new AppError(httpStatus.BAD_REQUEST, "Payment ID missing");
-      }
-
-      if (!status) {
-        throw new AppError(httpStatus.BAD_REQUEST, "Payment status missing");
-      }
-
-      const bkashIdToken = await getBkashIdToken();
-
-      if (!bkashIdToken) {
-        throw new AppError(
-          httpStatus.BAD_GATEWAY,
-          "No Bkash access token found",
-        );
-      }
-
-      const bkashHeaders = {
-        "Content-Type": "application/json",
-        Accept: "application/json",
-        Authorization: bkashIdToken,
-        "X-App-Key": config.bkash_app_key,
-      };
-      const executeResponse = await fetch(
-        `${config.bkash_sandbox_base_url}/tokenized/checkout/execute`,
-        {
-          method: "POST",
-          headers: bkashHeaders,
-          body: JSON.stringify({ paymentID: paymentId }),
-        },
-      );
-
-      const executeResult = await executeResponse.json();
-
       if (status === "success") {
+        if (!executeResult) {
+          throw new AppError(
+            httpStatus.BAD_GATEWAY,
+            "Missing bKash execution response",
+          );
+        }
+
         const payment = await tx.payment.findFirst({
           where: { bkashPaymentId: paymentId },
           include: {
@@ -297,7 +367,6 @@ const createdPaymentCallBack = async (query: Record<string, any>) => {
         const startDate = new Date();
         const endDate = addMonths(startDate, 1);
 
-        // Update payment to SUCCESS
         await tx.payment.update({
           where: { id: payment.id },
           data: {
@@ -309,7 +378,6 @@ const createdPaymentCallBack = async (query: Record<string, any>) => {
           },
         });
 
-        // Upsert subscription
         const subscription = await tx.subscription.upsert({
           where: { managerId: payment.managerId },
           create: {
@@ -329,61 +397,23 @@ const createdPaymentCallBack = async (query: Record<string, any>) => {
           },
         });
 
-        // Link payment to subscription
         await tx.payment.update({
           where: { id: payment.id },
           data: { subscriptionId: subscription.id },
         });
-        // PDF
-        const pdfDocument = new PDFDocument({ margin: 50 });
-
-        const pdfChunks: Buffer[] = [];
-
-        const pdfReadyPromise = new Promise<Buffer>((resolve) => {
-          pdfDocument.on("end", () => {
-            resolve(Buffer.concat(pdfChunks));
-          });
-        });
-
-        pdfDocument
-          .fontSize(20)
-          .text("Sprintly Project Management App", { align: "center" });
-        pdfDocument
-          .fontSize(14)
-          .text("Subscription Invoice", { align: "center" });
-        pdfDocument.moveDown(2);
-
-        pdfDocument.fontSize(12).text(`Manager Name: ${payment?.manager.name}`);
-        pdfDocument.text(`Manager Email: ${payment?.manager.email}`);
-        pdfDocument.moveDown();
-
-        pdfDocument.text(`Subscription Start: ${subscription.startDate}`);
-        pdfDocument.text(`Subscription End: ${subscription.endDate}`);
-        pdfDocument.text(`Subscription Status: ${subscription.status}`);
-        pdfDocument.moveDown();
-
-        pdfDocument.text(`Amount Paid: ${payment.amount} BDT`);
-        pdfDocument.text(`Payment Method: BKash`);
-        pdfDocument.text(`Transaction Id: ${payment.bkashTrxId}`);
-        pdfDocument.text(`Paid At: ${payment.paidAt}`);
-
-        pdfDocument.end();
-
-        const pdfBuffer = await pdfReadyPromise;
-
-        await transporter.sendMail({
-          from: config.email_sender,
-          to: payment.manager.email,
-          subject: "Your Subscription Invoice - Sprintly Project Management App",
-          text: "Thank you for subscribing, Please find your invoice attached",
-          attachments:[
-            {
-              filename: `${payment.manager.email}_invoice.pdf`,
-              content: pdfBuffer
-            }
-          ]
-        })
-        return { redirectUrl: successRedirect };
+        return {
+          redirectUrl: successRedirect,
+          invoice: {
+            managerName: payment.manager.name,
+            managerEmail: payment.manager.email,
+            startDate: subscription.startDate,
+            endDate: subscription.endDate,
+            status: subscription.status,
+            amount: payment.amount,
+            transactionId: executeResult!.trxID,
+            paidAt: new Date(),
+          },
+        };
       } else if (status === "failure") {
         await tx.payment.updateMany({
           where: { bkashPaymentId: paymentId },
@@ -410,9 +440,15 @@ const createdPaymentCallBack = async (query: Record<string, any>) => {
     },
     {
       maxWait: 10000, // wait up to 10s to acquire a connection
-      timeout: 30000, // allow up to 30s for the transaction (covers bkash network latency)
+      timeout: 10000,
     },
   );
+
+  if (transactionResult.invoice) {
+    void sendSubscriptionInvoice(transactionResult.invoice).catch((error) => {
+      console.error("Failed to send subscription invoice", error);
+    });
+  }
 
   const callbackPayment = await prisma.payment.findFirst({
     where: { bkashPaymentId: query.paymentID as string | undefined },
@@ -515,4 +551,3 @@ export const paymentService = {
   createdPaymentCallBack,
   getMyPayment,
 };
-// TODO

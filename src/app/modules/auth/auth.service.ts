@@ -11,7 +11,7 @@ import {
 import bcrypt from "bcryptjs";
 import { config } from "../../config";
 import crypto from "crypto";
-import { redisClient } from "../../lib/redis";
+import { ensureRedisConnection, redisClient } from "../../lib/redis";
 import path from "path";
 import ejs from "ejs";
 import { transporter } from "../../lib/nodemailer";
@@ -27,6 +27,7 @@ import { TokenPayload } from "google-auth-library";
 import { googleClient } from "../../lib/google.auth";
 
 const registerUserInDB = async (payload: IUserRegisterPayload) => {
+  await ensureRedisConnection();
   const { name, email, password, member: memberData } = payload;
 
   const isUserExists = await prisma.user.findUnique({
@@ -100,6 +101,7 @@ const registerUserInDB = async (payload: IUserRegisterPayload) => {
 const verifyUserEmailAndStoreUserInDB = async (
   payload: IVerifyEmailPayload,
 ) => {
+  await ensureRedisConnection();
   const otp = payload.otp;
   const email = payload.email.trim().toLowerCase();
 
@@ -469,6 +471,7 @@ const googleLogin = async (payload: IGoogleLoginPayload) => {
   };
 };
 const registerManagerInDB = async(payload: IManagerRegisterPayload) => {
+  await ensureRedisConnection();
   const {email, manager: managerData, name, password} = payload
   const isUserExists = await prisma.user.findUnique({
     where: { email },
@@ -539,6 +542,7 @@ const registerManagerInDB = async(payload: IManagerRegisterPayload) => {
 const verifyManagerEmailAndStoreUserInDB = async (
   payload: IVerifyEmailPayload,
 ) => {
+  await ensureRedisConnection();
   const otp = payload.otp;
   const email = payload.email.trim().toLowerCase();
 

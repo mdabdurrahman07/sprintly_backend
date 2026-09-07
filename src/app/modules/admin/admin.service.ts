@@ -192,6 +192,7 @@ const adminTotalAnalytics = async (user: ReqUser) => {
       amount: true,
     },
   });
+  const totalAmount = Number(totalRevenueResult._sum?.amount || 0);
   const usersCount = await prisma.user.count({
     where: {
       deletedAt: null,
@@ -210,7 +211,7 @@ const adminTotalAnalytics = async (user: ReqUser) => {
     },
   });
   return {
-    totalRevenueResult,
+    totalAmount,
     totalMembers,
     totalManagers,
     usersCount,
@@ -350,5 +351,5 @@ export const adminService = {
   updateUserStatus,
   adminTotalAnalytics,
   getAllProject,
-  getAuditLogs
+  getAuditLogs,
 };

@@ -7,21 +7,26 @@ import { Prisma } from "../../../generated/prisma/client";
 import { config } from "../config";
 
 export const globalErrorHandler = async (
-	err: any,
+	err: unknown,
 	_req: Request,
 	res: Response,
 	_next: NextFunction,
 ) => {
-	if (config.node_env === "development") {
-		console.log("Error from Global Error Handler", err);
-	}
+	console.error("Error from Global Error Handler", err);
 
 	let statusCode: number = httpStatus.INTERNAL_SERVER_ERROR;
-	let errorMessage = err.message || "Internal Server Error";
-	const errorName = err.name || "Internal Server Error";
-	// let errorDetails = err.stack
+	let errorMessage = "Internal Server Error";
+	let errorName = "Internal Server Error";
 
-	if (err instanceof Prisma.PrismaClientValidationError) {
+	if (err instanceof Error) {
+		errorName = err.name;
+		errorMessage = err.message || errorMessage;
+	}
+
+	if (err instanceof AppError) {
+		statusCode = err.StatusCode;
+		errorMessage = err.message;
+	} else if (err instanceof Prisma.PrismaClientValidationError) {
 		statusCode = httpStatus.BAD_REQUEST;
 		errorMessage = "You have provided incorrect field type or missing fields";
 	} else if (err instanceof Prisma.PrismaClientKnownRequestError) {
@@ -48,23 +53,17 @@ export const globalErrorHandler = async (
 	} else if (err instanceof Prisma.PrismaClientUnknownRequestError) {
 		statusCode = httpStatus.INTERNAL_SERVER_ERROR;
 		errorMessage = "Error occurred during query execution";
-	} else if (err instanceof AppError) {
-		errorMessage = err.message;
-		statusCode = err.StatusCode;
-	} else if (err instanceof Error) {
-		errorMessage = err.message;
 	}
 
 	res.status(statusCode).json({
 		success: false,
-		statusCode: statusCode || httpStatus.INTERNAL_SERVER_ERROR,
-		name:
-			config.node_env === "development" ? errorName : "Internal Server Error",
-		message:
-			config.node_env === "development"
-				? errorMessage
-				: "Internal Server Error",
+		statusCode,
+		name: errorName,
+		message: errorMessage,
 		error: config.node_env === "development" ? err : undefined,
-		stack: config.node_env === "development" ? err.stack : undefined,
+		stack:
+			config.node_env === "development" && err instanceof Error
+				? err.stack
+				: undefined,
 	});
 };

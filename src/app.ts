@@ -12,6 +12,7 @@ import { commentRoute } from "./app/modules/comment/comment.route";
 import { paymentRoutes } from "./app/modules/payment/payment.route";
 import { planRoutes } from "./app/modules/plan/plan.router";
 import { projectRouter } from "./app/modules/project/project.route";
+import { adminRoutes } from "./app/modules/admin/admin.route";
 const app: Application = express();
 
 app.use(
@@ -33,6 +34,7 @@ app.use("/sprintly/api/v1/task", taskRoutes);
 app.use("/sprintly/api/v1/comments", commentRoute);
 app.use("/sprintly/api/v1/payment", paymentRoutes);
 app.use("/sprintly/api/v1/plan", planRoutes);
+app.use("/sprintly/api/v1/admin", adminRoutes)
 
 // Basic route
 app.get("/", async (req: Request, res: Response) => {

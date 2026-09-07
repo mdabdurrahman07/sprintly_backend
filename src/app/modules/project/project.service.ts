@@ -455,9 +455,18 @@ const createTask = async (
       "Your current subscription is not active or has expired. Please purchase a valid subscription to create projects.",
     );
   }
+  const project = await prisma.project.findUnique({
+    where: {
+      id: projectId,
+      managerId: manager.id,
+    },
+  });
+  if (!project) {
+    throw new AppError(httpStatus.NOT_FOUND, "No project found");
+  }
   const createTask = await prisma.task.create({
     data: {
-      projectId,
+      projectId: project.id,
       title: payload.title,
       description: payload.description,
       status: payload.status,
