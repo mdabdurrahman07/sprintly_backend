@@ -7,6 +7,8 @@ import { getBkashIdToken } from "../../lib/bkash";
 import { config } from "../../config";
 import { IQuery } from "../../interface";
 import { logActivity } from "../../utils/logActivity";
+import PDFDocument from "pdfkit";
+import { transporter } from "../../lib/nodemailer";
 
 const createPayment = async (user: ReqUser, payload: any) => {
   const { planId } = payload;
@@ -226,7 +228,6 @@ const createPayment = async (user: ReqUser, payload: any) => {
   };
 };
 const createdPaymentCallBack = async (query: Record<string, any>) => {
-
   const failureRedirect = `${config.frontend_url}/dashboard/my-payment?status=failure`;
   const cancelRedirect = `${config.frontend_url}/dashboard/my-payment?status=cancel`;
   const successRedirect = `${config.frontend_url}/dashboard/my-payment?status=success`;
@@ -273,6 +274,14 @@ const createdPaymentCallBack = async (query: Record<string, any>) => {
       if (status === "success") {
         const payment = await tx.payment.findFirst({
           where: { bkashPaymentId: paymentId },
+          include: {
+            manager: {
+              select: {
+                name: true,
+                email: true,
+              },
+            },
+          },
         });
 
         if (!payment) {
@@ -326,7 +335,55 @@ const createdPaymentCallBack = async (query: Record<string, any>) => {
           where: { id: payment.id },
           data: { subscriptionId: subscription.id },
         });
+        // PDF
+        const pdfDocument = new PDFDocument({ margin: 50 });
 
+        const pdfChunks: Buffer[] = [];
+
+        const pdfReadyPromise = new Promise<Buffer>((resolve) => {
+          pdfDocument.on("end", () => {
+            resolve(Buffer.concat(pdfChunks));
+          });
+        });
+
+        pdfDocument
+          .fontSize(20)
+          .text("Sprintly Project Management App", { align: "center" });
+        pdfDocument
+          .fontSize(14)
+          .text("Subscription Invoice", { align: "center" });
+        pdfDocument.moveDown(2);
+
+        pdfDocument.fontSize(12).text(`Manager Name: ${payment?.manager.name}`);
+        pdfDocument.text(`Manager Email: ${payment?.manager.email}`);
+        pdfDocument.moveDown();
+
+        pdfDocument.text(`Subscription Start: ${subscription.startDate}`);
+        pdfDocument.text(`Subscription End: ${subscription.endDate}`);
+        pdfDocument.text(`Subscription Status: ${subscription.status}`);
+        pdfDocument.moveDown();
+
+        pdfDocument.text(`Amount Paid: ${payment.amount} BDT`);
+        pdfDocument.text(`Payment Method: BKash`);
+        pdfDocument.text(`Transaction Id: ${payment.bkashTrxId}`);
+        pdfDocument.text(`Paid At: ${payment.paidAt}`);
+
+        pdfDocument.end();
+
+        const pdfBuffer = await pdfReadyPromise;
+
+        await transporter.sendMail({
+          from: config.email_sender,
+          to: payment.manager.email,
+          subject: "Your Subscription Invoice - Sprintly Project Management App",
+          text: "Thank you for subscribing, Please find your invoice attached",
+          attachments:[
+            {
+              filename: `${payment.manager.email}_invoice.pdf`,
+              content: pdfBuffer
+            }
+          ]
+        })
         return { redirectUrl: successRedirect };
       } else if (status === "failure") {
         await tx.payment.updateMany({
@@ -363,7 +420,10 @@ const createdPaymentCallBack = async (query: Record<string, any>) => {
     include: { manager: { select: { userId: true } } },
   });
 
-  if (callbackPayment && ["success", "failure", "cancel"].includes(query.status)) {
+  if (
+    callbackPayment &&
+    ["success", "failure", "cancel"].includes(query.status)
+  ) {
     await logActivity({
       actorUserId: callbackPayment.manager.userId,
       action: `Payment ${query.status}`,
@@ -443,19 +503,17 @@ const getMyPayment = async (user: ReqUser) => {
         },
       },
     },
-    omit:{
-      gatewayResponse: true
-    }
+    omit: {
+      gatewayResponse: true,
+    },
   });
 
   return payment;
 };
 
-
 export const paymentService = {
   createPayment,
   createdPaymentCallBack,
   getMyPayment,
-
 };
 // TODO
