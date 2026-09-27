@@ -18,6 +18,7 @@ enum UserStatus {
 enum SubscriptionPlan {
   FREE
   PRO
+  ENTERPRISE
 }
 
 enum SubscriptionStatus {
