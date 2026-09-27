@@ -12,6 +12,8 @@ import { logActivity } from "../../utils/logActivity";
 import { ICreateTaskInput } from "../task/task.interface";
 import { isSubscriptionActive } from "../../utils/helper";
 import { uploadDocumentsOnCloudinary } from "../../lib/cloudinary";
+import { PROJECT_LIMITS } from "../../utils/projectLimiter";
+import { SubscriptionPlan } from "../../../../generated/prisma/enums";
 
 const createProject = async (
   payload: IProjectPayload,
@@ -55,7 +57,11 @@ const createProject = async (
       email: existingUser.managerProfile?.email,
     },
     include: {
-      subscription: true,
+      subscription: {
+        include: {
+          plan: true,
+        },
+      },
       payments: true,
     },
   });
@@ -68,6 +74,24 @@ const createProject = async (
       httpStatus.BAD_REQUEST,
       "Your current subscription is not active or has expired. Please purchase a valid subscription to create projects.",
     );
+  }
+  const plan = manager.subscription?.plan;
+  if (plan) {
+    const planName = plan.name as SubscriptionPlan; 
+    const limit = PROJECT_LIMITS[planName] ?? 0;
+
+    const projectCount = await prisma.project.count({
+      where: {
+        managerId: manager.id,
+      },
+    });
+
+    if (projectCount >= limit) {
+      throw new AppError(
+        httpStatus.BAD_REQUEST,
+        `Your ${planName} plan allows a maximum of ${limit} projects. You have already reached your limit.`,
+      );
+    }
   }
   const additionalFileResult = additionalFiles.length
     ? await uploadDocumentsOnCloudinary(additionalFiles)
