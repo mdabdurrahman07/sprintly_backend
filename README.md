@@ -1,4 +1,4 @@
-# Sprintly
+# Sprintly - Project Management SASS App
 
 Sprintly is a Node.js and TypeScript project-management backend built with Express, PostgreSQL, Prisma, Redis, and bKash payments. It supports manager-owned projects, member task assignment and comments, role-based administration, email and Google authentication, Cloudinary uploads, subscription plans, and subscription payments through bKash.
 
