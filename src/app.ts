@@ -15,10 +15,15 @@ import { planRoutes } from "./app/modules/plan/plan.router";
 import { projectRouter } from "./app/modules/project/project.route";
 import { adminRoutes } from "./app/modules/admin/admin.route";
 const app: Application = express();
+const configuredFrontendOrigin = config.frontend_url
+  ? new URL(config.frontend_url).origin
+  : undefined;
 
 app.use(
   cors({
-    origin: config.frontend_url,
+    origin: (origin, callback) => {
+      callback(null, Boolean(origin && origin === configuredFrontendOrigin));
+    },
     credentials: true,
   }),
 );

@@ -14,7 +14,8 @@
   "scripts": {
     "dev": "tsx watch src/server.ts",
     "build": "tsup",
-    "start": "node dist/server.js"
+    "start": "node dist/server.js",
+    "test": "node --import tsx --test src/app/modules/auth/auth.cookies.test.ts"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.10.0",
