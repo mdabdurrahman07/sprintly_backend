@@ -5,6 +5,7 @@ import { authServices } from "./auth.service";
 import { sendResponse } from "../../utils/sendResponse";
 import { ReqUser } from "../../middleware/checkAuth";
 import { AppError } from "../../utils/AppError";
+import { config } from "../../config";
 
 const registerMember = catchAsync(async (req: Request, res: Response) => {
   const payload = req.body;
@@ -19,18 +20,18 @@ const login = catchAsync(async (req: Request, res: Response) => {
   const payload = req.body;
   const result = await authServices.login(payload);
   const { accessToken, refreshToken } = result;
-  res.cookie("accessToken", accessToken, {
+   res.cookie("accessToken", accessToken, {
     httpOnly: true,
-    secure: false,
-    sameSite: "none",
+    secure: config.node_env === "development" ? false : true,
+    sameSite: config.node_env === "development" ? "lax" : "none",
     maxAge: 1000 * 60 * 60 * 24, // 24 hour or 1 day
   });
   res.cookie("refreshToken", refreshToken, {
     httpOnly: true,
-    secure: false,
-    sameSite: "none",
+    secure: config.node_env === "development" ? false : true,
+    sameSite: config.node_env === "development" ? "lax" : "none",
     maxAge: 1000 * 60 * 60 * 24 * 7, // 7 days
-  });
+  })
   sendResponse(res, {
     statusCode: httpStatus.CREATED,
     success: true,
@@ -45,18 +46,18 @@ const verifyEmail = catchAsync(async (req: Request, res: Response) => {
   const payload = req.body;
   const result = await authServices.verifyUserEmailAndStoreUserInDB(payload);
   const { accessToken, refreshToken, user, memberProfile } = result;
-  res.cookie("accessToken", accessToken, {
+   res.cookie("accessToken", accessToken, {
     httpOnly: true,
-    secure: false,
-    sameSite: "none",
+    secure: config.node_env === "development" ? false : true,
+    sameSite: config.node_env === "development" ? "lax" : "none",
     maxAge: 1000 * 60 * 60 * 24, // 24 hour or 1 day
   });
   res.cookie("refreshToken", refreshToken, {
     httpOnly: true,
-    secure: false,
-    sameSite: "none",
+    secure: config.node_env === "development" ? false : true,
+    sameSite: config.node_env === "development" ? "lax" : "none",
     maxAge: 1000 * 60 * 60 * 24 * 7, // 7 days
-  });
+  })
   sendResponse(res, {
     statusCode: httpStatus.CREATED,
     success: true,
@@ -150,18 +151,18 @@ const verifyManagerEmail = catchAsync(async (req: Request, res: Response) => {
   const payload = req.body;
   const result = await authServices.verifyManagerEmailAndStoreUserInDB(payload);
   const { accessToken, refreshToken, user, managerProfile } = result;
-  res.cookie("accessToken", accessToken, {
+   res.cookie("accessToken", accessToken, {
     httpOnly: true,
-    secure: false,
-    sameSite: "none",
+    secure: config.node_env === "development" ? false : true,
+    sameSite: config.node_env === "development" ? "lax" : "none",
     maxAge: 1000 * 60 * 60 * 24, // 24 hour or 1 day
   });
   res.cookie("refreshToken", refreshToken, {
     httpOnly: true,
-    secure: false,
-    sameSite: "none",
+    secure: config.node_env === "development" ? false : true,
+    sameSite: config.node_env === "development" ? "lax" : "none",
     maxAge: 1000 * 60 * 60 * 24 * 7, // 7 days
-  });
+  })
   sendResponse(res, {
     statusCode: httpStatus.CREATED,
     success: true,
