@@ -8,12 +8,13 @@ const getAllUsers = catchAsync(async (req: Request, res: Response) => {
   const query = req.query;
   const user = req.user!;
 
-  const result = await adminService.getAllUsers(query, user);
+  const {data, meta} = await adminService.getAllUsers(query, user);
   sendResponse(res, {
     statusCode: httpStatus.OK,
     success: true,
     message: "All users fetched successfully",
-    data: result,
+    data: data,
+    meta: meta
   });
 });
 const updateUserStatus = catchAsync(async (req: Request, res: Response) => {
