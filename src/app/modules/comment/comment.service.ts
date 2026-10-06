@@ -114,6 +114,16 @@ const getComments = async (taskId: string) => {
       taskId,
       deletedAt: null,
     },
+    orderBy: { createdAt: "asc" },
+    include: {
+      member: {
+        select: {
+          id: true,
+          name: true,
+          memberAvatarUrl: true,
+        },
+      },
+    },
   });
   if (!taskComment) {
     throw new AppError(httpStatus.NOT_FOUND, "Not comment found");
@@ -125,7 +135,7 @@ const deleteComment = async (commentId: string, user: ReqUser) => {
   if (!commentId) {
     throw new AppError(httpStatus.NOT_FOUND, "Invalid Comment Id");
   }
-   const existingUser = await prisma.user.findUnique({
+  const existingUser = await prisma.user.findUnique({
     where: {
       id: user.userId,
       role: user.role,
@@ -173,7 +183,7 @@ const deleteComment = async (commentId: string, user: ReqUser) => {
   const deleteComment = await prisma.comment.delete({
     where: {
       id: commentId,
-      memberId: member.id
+      memberId: member.id,
     },
   });
   await logActivity({

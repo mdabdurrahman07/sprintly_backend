@@ -28,7 +28,7 @@ const getMyAssignedTask = async (user: ReqUser) => {
   }
   const task = await prisma.task.findMany({
     where: {
-      assigneeId: existingUser.memberProfile?.id,
+      assigneeId: user.role === "MEMBER" ? existingUser.memberProfile?.id : undefined,
     },
   });
   if (!task) {
