@@ -15,6 +15,15 @@ import { uploadDocumentsOnCloudinary } from "../../lib/cloudinary";
 import { PROJECT_LIMITS } from "../../utils/projectLimiter";
 import { SubscriptionPlan } from "../../../../generated/prisma/enums";
 
+const MAX_PAGE_SIZE = 100;
+const SORTABLE_TASK_FIELDS = [
+  "createdAt",
+  "updatedAt",
+  "priority",
+  "status",
+  "title",
+] as const;
+
 const createProject = async (
   payload: IProjectPayload,
   user: ReqUser,
@@ -548,36 +557,49 @@ const getTask = async (projectId: string, query: IQuery, user: ReqUser) => {
   if (!existingUser) {
     throw new AppError(httpStatus.NOT_FOUND, "User not found");
   }
-  const limit = query.limit ? Number(query.limit) : 10;
-  const page = query.page ? Number(query.page) : 1;
+  const limit = Math.min(
+    Math.max(Number(query.limit) || 10, 1),
+    MAX_PAGE_SIZE,
+  );
+  const page = Math.max(Number(query.page) || 1, 1);
   const skip = (page - 1) * limit;
-  const sortBy = query.sortBy ? query.sortBy : "createdAt";
-  const sortOrder = query.sortOrder ? query.sortOrder : "desc";
-  const andConditions: TaskWhereInput[] = [];
-  andConditions.push({
-    OR: [
-      { assigneeId: existingUser?.memberProfile?.id },
-      { projectId: projectId },
-    ],
-  });
+  const sortBy =
+    SORTABLE_TASK_FIELDS.find((field) => field === query.sortBy) ?? "createdAt";
+  const sortOrder = query.sortOrder === "asc" ? "asc" : "desc";
+
+  let scope: TaskWhereInput;
+  if (existingUser.role === "MANAGER") {
+    const managerId = existingUser.managerProfile?.id;
+    if (!managerId) {
+      throw new AppError(httpStatus.FORBIDDEN, "Manager profile not found");
+    }
+    scope = { projectId, project: { managerId } };
+  } else if (existingUser.role === "MEMBER") {
+    const memberId = existingUser.memberProfile?.id;
+    if (!memberId) {
+      throw new AppError(httpStatus.FORBIDDEN, "Member profile not found");
+    }
+    scope = { projectId, assigneeId: memberId };
+  } else {
+    scope = { projectId };
+  }
+
+  const andConditions: TaskWhereInput[] = [scope, { isDeleted: false }];
   if (query.searchTerm) {
     andConditions.push({
       OR: [
-        { title: { contains: query.search, mode: "insensitive" } },
-        { description: { contains: query.search, mode: "insensitive" } },
+        { title: { contains: query.searchTerm, mode: "insensitive" } },
+        {
+          description: {
+            contains: query.searchTerm,
+            mode: "insensitive",
+          },
+        },
       ],
     });
   }
-  if (query.status) {
-    andConditions.push({
-      status: query.status,
-    });
-  }
-  if (query.priority) {
-    andConditions.push({
-      status: query.priority,
-    });
-  }
+  if (query.status) andConditions.push({ status: query.status });
+  if (query.priority) andConditions.push({ priority: query.priority });
   const task = await prisma.task.findMany({
     where: {
       AND: andConditions,

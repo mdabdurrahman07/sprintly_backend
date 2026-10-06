@@ -279,9 +279,9 @@ const sendSubscriptionInvoice = async (invoice: {
 };
 
 const createdPaymentCallBack = async (query: Record<string, any>) => {
-  const failureRedirect = `${config.frontend_url}/dashboard/my-payment?status=failure`;
-  const cancelRedirect = `${config.frontend_url}/dashboard/my-payment?status=cancel`;
-  const successRedirect = `${config.frontend_url}/dashboard/my-payment?status=success`;
+  const failureRedirect = `${config.frontend_url}/manager/billing/my-bill/redirect/?status=failure`;
+  const cancelRedirect = `${config.frontend_url}/manager/billing/my-bill/redirect/?status=cancel`;
+  const successRedirect = `${config.frontend_url}/manager/billing/my-bill/redirect/?status=success`;
 
   const paymentId = query.paymentID as string | undefined;
   const status = query.status as string | undefined;
