@@ -73,7 +73,7 @@ const deleteMemberFromProject = catchAsync(
   async (req: Request, res: Response) => {
     const user = req.user!;
     const projectId = req.params.id as string;
-    const memberId = req.body;
+  const { memberId } = req.body;
     await projectService.deleteMemberFromProject(user, memberId, projectId);
     sendResponse(res, {
       statusCode: httpStatus.OK,
