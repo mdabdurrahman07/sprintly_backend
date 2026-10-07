@@ -408,6 +408,23 @@ const deleteMemberFromProject = async (
   if (!existingUser) {
     throw new AppError(httpStatus.NOT_FOUND, "User not found");
   }
+
+    if (existingUser.role !== "MANAGER") {
+    throw new AppError(httpStatus.FORBIDDEN, "Only manager can create project");
+  }
+
+  if (existingUser.isDeleted || existingUser.status === "DELETED") {
+    throw new AppError(
+      httpStatus.FORBIDDEN,
+      "Your account is deleted, please contact an admin",
+    );
+  }
+  if (existingUser.status === "BLOCKED") {
+    throw new AppError(
+      httpStatus.FORBIDDEN,
+      "Your account is blocked, please contact an admin",
+    );
+  }
   const project = await prisma.project.findUnique({
     where: {
       id: projectId,
@@ -420,7 +437,7 @@ const deleteMemberFromProject = async (
   const deleteMember = await prisma.projectMember.delete({
     where: {
       projectId_memberId: {
-        projectId: project.id,
+        projectId: projectId,
         memberId: memberId,
       },
     },
