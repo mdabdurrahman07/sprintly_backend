@@ -44,7 +44,7 @@ router.patch(
   strictLimiter,
   projectController.updateProject,
 );
-router.patch("/del/:id", auth(Role.MANAGER), projectController.deleteProject); // soft-delete
+router.delete("/del/:id/project", auth(Role.MANAGER), projectController.deleteProject);
 router.delete(
   "/del/:id",
   auth(Role.MANAGER),

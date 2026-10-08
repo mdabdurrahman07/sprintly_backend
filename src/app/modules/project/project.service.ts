@@ -371,23 +371,19 @@ const deleteProject = async (projectId: string, user: ReqUser) => {
   if (!project) {
     throw new AppError(httpStatus.NOT_FOUND, "No project found");
   }
-  const softDelete = await prisma.project.update({
+  const Delete = await prisma.project.delete({
     where: {
       id: project.id,
       managerId: existingUser.managerProfile?.id,
-    },
-    data: {
-      deletedAt: new Date(),
-      isDeleted: true,
-    },
+    }
   });
   await logActivity({
     actorUserId: user.userId,
-    action: "Project deleted(soft-delete)",
+    action: "Project deleted",
     entityType: "Project",
     entityId: projectId,
   });
-  return softDelete;
+  return Delete;
 };
 const deleteMemberFromProject = async (
   user: ReqUser,
