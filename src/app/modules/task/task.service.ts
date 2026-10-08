@@ -2,10 +2,7 @@ import httpStatus from "http-status";
 import { prisma } from "../../lib/prisma";
 import { ReqUser } from "../../middleware/checkAuth";
 import { AppError } from "../../utils/AppError";
-import {
-  IAssignTaskToMember,
-  IUpdateTaskInput,
-} from "./task.interface";
+import { IAssignTaskToMember, IUpdateTaskInput } from "./task.interface";
 import { logActivity } from "../../utils/logActivity";
 import { TaskStatus } from "../../../../generated/prisma/enums";
 import path from "node:path";
@@ -28,7 +25,8 @@ const getMyAssignedTask = async (user: ReqUser) => {
   }
   const task = await prisma.task.findMany({
     where: {
-      assigneeId: user.role === "MEMBER" ? existingUser.memberProfile?.id : undefined,
+      assigneeId:
+        user.role === "MEMBER" ? existingUser.memberProfile?.id : undefined,
     },
   });
   if (!task) {
@@ -90,65 +88,65 @@ const getTaskDetails = async (taskId: string, user: ReqUser) => {
   });
   return singleTask;
 };
+const isSameValue = (a: unknown, b: unknown) =>
+  JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
+
 const updateTask = async (
   payload: IUpdateTaskInput,
   taskId: string,
   user: ReqUser,
 ) => {
-  const task = await prisma.task.findUnique({
-    where: { id: taskId },
-  });
-
+  const task = await prisma.task.findUnique({ where: { id: taskId } });
   if (!task) {
     throw new AppError(httpStatus.NOT_FOUND, "Task not found");
   }
+
   const existingUser = await prisma.user.findUnique({
     where: { id: user.userId },
-    include: {
-      memberProfile: true,
-      managerProfile: true,
-    },
+    include: { memberProfile: true, managerProfile: true },
   });
-
   if (!existingUser) {
     throw new AppError(httpStatus.NOT_FOUND, "User not found");
   }
+
   const isManager = !!existingUser.managerProfile;
   const isAdmin = user.role === "ADMIN";
   const isPrivileged = isManager || isAdmin;
 
-  const coreFields: (keyof IUpdateTaskInput)[] = [
-    "title",
-    "description",
-    "priority",
-    "labels",
-  ];
-  const hasModifiedCoreField = (
-    Object.keys(payload) as (keyof IUpdateTaskInput)[]
-  ).some((key) => coreFields.includes(key) && payload[key] !== undefined);
+  // Core fields: only block if the value really changes
+  const coreFields = ["title", "description", "priority", "labels"] as const;
+  const hasModifiedCoreField = coreFields.some(
+    (key) =>
+      payload[key] !== undefined && !isSameValue(payload[key], task[key]),
+  );
+
   if (hasModifiedCoreField && !isPrivileged) {
     throw new AppError(
       httpStatus.FORBIDDEN,
       "Only managers or admins can modify core task details.",
     );
   }
+
+  // Status rules
   if (payload.status && payload.status !== task.status) {
     const newStatus = payload.status;
-    if (newStatus === TaskStatus.DONE && !isPrivileged) {
-      throw new AppError(
-        httpStatus.FORBIDDEN,
-        "Only managers or admins can mark a task as Done.",
-      );
-    }
+
     if (!isPrivileged) {
+      if (newStatus === TaskStatus.DONE) {
+        throw new AppError(
+          httpStatus.FORBIDDEN,
+          "Only managers or admins can mark a task as Done.",
+        );
+      }
+
       const validTransitions: Record<TaskStatus, TaskStatus[]> = {
         [TaskStatus.TODO]: [TaskStatus.IN_PROGRESS],
         [TaskStatus.IN_PROGRESS]: [TaskStatus.IN_REVIEW],
-        [TaskStatus.IN_REVIEW]: [TaskStatus.IN_REVIEW],
+        [TaskStatus.IN_REVIEW]: [],
         [TaskStatus.DONE]: [],
       };
-      const allowed = validTransitions[task.status] || [];
-      if (!allowed.includes(newStatus)) {
+
+      if (!validTransitions[task.status].includes(newStatus)) {
         throw new AppError(
           httpStatus.BAD_REQUEST,
           `Invalid status transition from ${task.status} to ${newStatus}`,
@@ -156,10 +154,9 @@ const updateTask = async (
       }
     }
   }
-  const updatedTask = prisma.task.update({
-    where: {
-      id: taskId,
-    },
+
+  const updatedTask = await prisma.task.update({
+    where: { id: taskId },
     data: {
       title: payload.title,
       description: payload.description,
@@ -167,14 +164,16 @@ const updateTask = async (
       priority: payload.priority,
       labels: payload.labels,
       assigneeId: payload.assigneeId,
-    }
+    },
   });
+
   await logActivity({
     actorUserId: user.userId,
     action: "Task updated",
     entityType: "Task",
-    entityId: user.userId,
+    entityId: taskId,
   });
+
   return updatedTask;
 };
 const assignTaskToMember = async (
@@ -249,10 +248,10 @@ const assignTaskToMember = async (
         memberId: member.id,
       },
     });
-   return tx.task.update({
+    return tx.task.update({
       where: { id: taskId },
       data: {
-        assigneeId: member.id, 
+        assigneeId: member.id,
         assignmentNotifiedAt: new Date(),
       },
     });
