@@ -19,7 +19,8 @@ const addComment = catchAsync(async (req: Request, res: Response) => {
 
 const getComments = catchAsync(async (req: Request, res: Response) => {
   const taskId = req.params.taskId as string;
-  const result = await commentServices.getComments(taskId);
+  const user = req.user!;
+  const result = await commentServices.getComments(taskId, user);
   sendResponse(res, {
     statusCode: httpStatus.OK,
     success: true,

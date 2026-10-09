@@ -9,6 +9,27 @@ import path from "node:path";
 import ejs from "ejs";
 import { transporter } from "../../lib/nodemailer";
 import { config } from "../../config";
+import { TaskWhereInput } from "../../../../generated/prisma/models";
+
+const getTaskAccessFilter = (user: {
+  role: string;
+  managerProfile: { id: string } | null;
+  memberProfile: { id: string } | null;
+}): TaskWhereInput => {
+  if (user.role === "MANAGER") {
+    if (!user.managerProfile) {
+      throw new AppError(httpStatus.FORBIDDEN, "Manager profile not found");
+    }
+    return { project: { managerId: user.managerProfile.id } };
+  }
+  if (user.role === "MEMBER") {
+    if (!user.memberProfile) {
+      throw new AppError(httpStatus.FORBIDDEN, "Member profile not found");
+    }
+    return { assigneeId: user.memberProfile.id };
+  }
+  throw new AppError(httpStatus.FORBIDDEN, "Unsupported user role");
+};
 
 const getMyAssignedTask = async (user: ReqUser) => {
   const existingUser = await prisma.user.findUnique({
@@ -16,22 +37,15 @@ const getMyAssignedTask = async (user: ReqUser) => {
       id: user.userId,
       role: user.role,
     },
-    include: {
-      memberProfile: true,
-    },
+    include: { managerProfile: true, memberProfile: true },
   });
   if (!existingUser) {
     throw new AppError(httpStatus.NOT_FOUND, "User not found");
   }
+  const accessFilter = getTaskAccessFilter(existingUser);
   const task = await prisma.task.findMany({
-    where: {
-      assigneeId:
-        user.role === "MEMBER" ? existingUser.memberProfile?.id : undefined,
-    },
+    where: { ...accessFilter, isDeleted: false },
   });
-  if (!task) {
-    throw new AppError(httpStatus.NOT_FOUND, "Task not found");
-  }
   await logActivity({
     actorUserId: user.userId,
     action: "Get Assigned Task",
@@ -54,10 +68,11 @@ const getTaskDetails = async (taskId: string, user: ReqUser) => {
   if (!existingUser) {
     throw new AppError(httpStatus.NOT_FOUND, "User not found");
   }
-  const singleTask = await prisma.task.findUnique({
+  const singleTask = await prisma.task.findFirst({
     where: {
       id: taskId,
-      assigneeId: existingUser.memberProfile?.id,
+      ...getTaskAccessFilter(existingUser),
+      isDeleted: false,
     },
     include: {
       project: {
@@ -96,20 +111,26 @@ const updateTask = async (
   taskId: string,
   user: ReqUser,
 ) => {
-  const task = await prisma.task.findUnique({ where: { id: taskId } });
-  if (!task) {
-    throw new AppError(httpStatus.NOT_FOUND, "Task not found");
-  }
-
   const existingUser = await prisma.user.findUnique({
-    where: { id: user.userId },
+    where: { id: user.userId, role: user.role },
     include: { memberProfile: true, managerProfile: true },
   });
   if (!existingUser) {
     throw new AppError(httpStatus.NOT_FOUND, "User not found");
   }
 
-  const isManager = !!existingUser.managerProfile;
+  const task = await prisma.task.findFirst({
+    where: {
+      id: taskId,
+      ...getTaskAccessFilter(existingUser),
+      isDeleted: false,
+    },
+  });
+  if (!task) {
+    throw new AppError(httpStatus.NOT_FOUND, "Task not found");
+  }
+
+  const isManager = existingUser.role === "MANAGER";
   const isAdmin = user.role === "ADMIN";
   const isPrivileged = isManager || isAdmin;
 
@@ -124,6 +145,12 @@ const updateTask = async (
     throw new AppError(
       httpStatus.FORBIDDEN,
       "Only managers or admins can modify core task details.",
+    );
+  }
+  if (payload.assigneeId !== undefined && !isPrivileged) {
+    throw new AppError(
+      httpStatus.FORBIDDEN,
+      "Only managers or admins can reassign a task.",
     );
   }
 
@@ -179,6 +206,7 @@ const updateTask = async (
 const assignTaskToMember = async (
   taskId: string,
   payload: IAssignTaskToMember,
+  user: ReqUser,
 ) => {
   if (!taskId || !payload.memberEmail) {
     throw new AppError(
@@ -187,8 +215,23 @@ const assignTaskToMember = async (
     );
   }
 
-  const task = await prisma.task.findUnique({
-    where: { id: taskId },
+  const existingUser = await prisma.user.findUnique({
+    where: { id: user.userId, role: user.role },
+    include: { managerProfile: true },
+  });
+  if (!existingUser) {
+    throw new AppError(httpStatus.NOT_FOUND, "User not found");
+  }
+  if (existingUser.role !== "MANAGER" || !existingUser.managerProfile) {
+    throw new AppError(httpStatus.FORBIDDEN, "Only a manager can assign tasks");
+  }
+
+  const task = await prisma.task.findFirst({
+    where: {
+      id: taskId,
+      project: { managerId: existingUser.managerProfile.id },
+      isDeleted: false,
+    },
     include: {
       project: {
         select: {

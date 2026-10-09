@@ -35,7 +35,7 @@ router.get(
 router.get(
   "/get/:id",
   auth(Role.ADMIN, Role.MANAGER, Role.MEMBER),
-  projectController.getProjects,
+  projectController.getSingleProject,
 );
 router.patch(
   "/update/:id",

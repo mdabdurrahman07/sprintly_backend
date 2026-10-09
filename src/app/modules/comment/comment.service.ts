@@ -105,9 +105,32 @@ const addComment = async (
 
   return comment;
 };
-const getComments = async (taskId: string) => {
+const getComments = async (taskId: string, user: ReqUser) => {
   if (!taskId) {
     throw new AppError(httpStatus.NOT_FOUND, "Invalid Id");
+  }
+  const existingUser = await prisma.user.findUnique({
+    where: { id: user.userId, role: user.role },
+    include: { managerProfile: true, memberProfile: true },
+  });
+  if (!existingUser) {
+    throw new AppError(httpStatus.NOT_FOUND, "User not found");
+  }
+  const taskAccess =
+    existingUser.role === "MANAGER" && existingUser.managerProfile
+      ? { project: { managerId: existingUser.managerProfile.id } }
+      : existingUser.role === "MEMBER" && existingUser.memberProfile
+        ? { assigneeId: existingUser.memberProfile.id }
+        : null;
+  if (!taskAccess) {
+    throw new AppError(httpStatus.FORBIDDEN, "Task access denied");
+  }
+  const task = await prisma.task.findFirst({
+    where: { id: taskId, ...taskAccess, isDeleted: false },
+    select: { id: true },
+  });
+  if (!task) {
+    throw new AppError(httpStatus.NOT_FOUND, "Task not found");
   }
   const taskComment = await prisma.comment.findMany({
     where: {

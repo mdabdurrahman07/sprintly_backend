@@ -24,6 +24,27 @@ const SORTABLE_TASK_FIELDS = [
   "title",
 ] as const;
 
+const getProjectAccessFilter = (user: {
+  role: string;
+  managerProfile: { id: string } | null;
+  memberProfile: { id: string } | null;
+}): ProjectWhereInput => {
+  if (user.role === "ADMIN") return {};
+  if (user.role === "MANAGER") {
+    if (!user.managerProfile) {
+      throw new AppError(httpStatus.FORBIDDEN, "Manager profile not found");
+    }
+    return { managerId: user.managerProfile.id };
+  }
+  if (user.role === "MEMBER") {
+    if (!user.memberProfile) {
+      throw new AppError(httpStatus.FORBIDDEN, "Member profile not found");
+    }
+    return { members: { some: { memberId: user.memberProfile.id } } };
+  }
+  throw new AppError(httpStatus.FORBIDDEN, "Unsupported user role");
+};
+
 const createProject = async (
   payload: IProjectPayload,
   user: ReqUser,
@@ -46,6 +67,9 @@ const createProject = async (
 
   if (existingUser.role !== "MANAGER") {
     throw new AppError(httpStatus.FORBIDDEN, "Only manager can create project");
+  }
+  if (!existingUser.managerProfile) {
+    throw new AppError(httpStatus.FORBIDDEN, "Manager profile not found");
   }
 
   if (existingUser.isDeleted || existingUser.status === "DELETED") {
@@ -150,13 +174,9 @@ const getProjects = async (user: ReqUser, query: IQuery) => {
   const sortBy = query.sortBy ? query.sortBy : "createdAt";
   const sortOrder = query.sortOrder ? query.sortOrder : "desc";
 
-  const andConditions: ProjectWhereInput[] = [];
-  andConditions.push({
-    OR: [
-      { managerId: existingUser.managerProfile?.id },
-      { members: { some: { memberId: existingUser.memberProfile?.id } } },
-    ],
-  });
+  const andConditions: ProjectWhereInput[] = [
+    getProjectAccessFilter(existingUser),
+  ];
   if (query.status) {
     andConditions.push({
       status: query.status,
@@ -165,8 +185,8 @@ const getProjects = async (user: ReqUser, query: IQuery) => {
   if (query.searchTerm) {
     andConditions.push({
       OR: [
-        { name: { contains: query.search, mode: "insensitive" } },
-        { description: { contains: query.search, mode: "insensitive" } },
+        { name: { contains: query.searchTerm, mode: "insensitive" } },
+        { description: { contains: query.searchTerm, mode: "insensitive" } },
       ],
     });
   }
@@ -241,13 +261,10 @@ const getSingleProject = async (projectId: string, user: ReqUser) => {
   if (!existingUser) {
     throw new AppError(httpStatus.NOT_FOUND, "User not found");
   }
-  const project = await prisma.project.findUnique({
+  const project = await prisma.project.findFirst({
     where: {
       id: projectId,
-      OR: [
-        { managerId: existingUser.managerProfile?.id },
-        { members: { some: { memberId: existingUser.memberProfile?.id } } },
-      ],
+      ...getProjectAccessFilter(existingUser),
     },
     include: {
       manager: {
@@ -277,6 +294,9 @@ const getSingleProject = async (projectId: string, user: ReqUser) => {
       },
     },
   });
+  if (!project) {
+    throw new AppError(httpStatus.NOT_FOUND, "Project not found");
+  }
   await logActivity({
     actorUserId: user.userId,
     action: "Single Project fetched",
@@ -307,6 +327,9 @@ const updateProject = async (
 
   if (existingUser.role !== "MANAGER") {
     throw new AppError(httpStatus.FORBIDDEN, "Only manager can create project");
+  }
+  if (!existingUser.managerProfile) {
+    throw new AppError(httpStatus.FORBIDDEN, "Manager profile not found");
   }
 
   if (existingUser.isDeleted || existingUser.status === "DELETED") {
@@ -362,6 +385,9 @@ const deleteProject = async (projectId: string, user: ReqUser) => {
   if (!existingUser) {
     throw new AppError(httpStatus.NOT_FOUND, "User not found");
   }
+  if (existingUser.role !== "MANAGER" || !existingUser.managerProfile) {
+    throw new AppError(httpStatus.FORBIDDEN, "Manager profile not found");
+  }
   const project = await prisma.project.findUnique({
     where: {
       id: projectId,
@@ -407,6 +433,9 @@ const deleteMemberFromProject = async (
 
     if (existingUser.role !== "MANAGER") {
     throw new AppError(httpStatus.FORBIDDEN, "Only manager can create project");
+  }
+  if (!existingUser.managerProfile) {
+    throw new AppError(httpStatus.FORBIDDEN, "Manager profile not found");
   }
 
   if (existingUser.isDeleted || existingUser.status === "DELETED") {
@@ -467,6 +496,9 @@ const createTask = async (
 
   if (existingUser.role !== "MANAGER") {
     throw new AppError(httpStatus.FORBIDDEN, "Only manager can create task");
+  }
+  if (!existingUser.managerProfile) {
+    throw new AppError(httpStatus.FORBIDDEN, "Manager profile not found");
   }
 
   if (existingUser.isDeleted || existingUser.status === "DELETED") {
